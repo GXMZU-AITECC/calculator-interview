@@ -1,6 +1,49 @@
 const displayMain = document.getElementById('display-main');
 const displaySub = document.getElementById('display-sub');
 const keyboard = document.getElementById('keyboard');
+function handleKeyAction(kind) {
+  switch (kind) {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      appendDigit(kind);
+      break;
+    case '.':
+      appendDot();
+      break;
+    case '+':
+      setOperator('+');
+      break;
+    case '-':
+      setOperator('-');
+      break;
+    case '*':
+      setOperator('*');
+      break;
+    case '/':
+      setOperator('/');
+      break;
+    case '=':
+      calculate();
+      break;
+    case 'C':
+      clearAll();
+      break;
+    case 'CE':
+      clearEntry();
+      break;
+    case 'backspace':
+      backspace();
+      break;
+    case 'x²':
+      square();
+      break;
+    case 'copy':
+      copyResult();
+      break;
+    default:
+      break;
+  }
+}
 
 // 获取历史记录列表容器
 const historyList = document.getElementById('history-list');
