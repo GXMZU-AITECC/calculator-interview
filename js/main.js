@@ -299,17 +299,14 @@ LAYOUT.forEach(([label, kind]) => {
       inputClearEntry();
     } else if (kind === 'sqrt') {
       inputSqrt();
-    } else if (kind === 'square') {
-      inputSquare();
-    } else {
-      inputEquals();
-    }
-    handleKeyAction(kind, label); // 分发逻辑统一收口到 handleKeyAction（原 if/else 链原样搬移）
-    } else if (kind === 'copy') {
-      inputCopy();
-    } else {
-      inputEquals();
-    }
+   } else if (kind === 'square') {
+  inputSquare();
+} else if (kind === 'copy') {
+  inputCopy();
+} else {
+  inputEquals();
+}
+handleKeyAction(kind, label); // 分发逻辑统一收口到 handleKeyAction（原 if/else 原样搬移）
   });
   keyboard.appendChild(button);
 });
