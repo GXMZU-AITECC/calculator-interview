@@ -239,6 +239,30 @@ function inputReciprocal() {
   show();
 }
 
+/** 阶乘键：对当前显示的非负整数求阶乘。 */
+function inputFactorial() {
+  if (isError()) {
+    return;
+  }
+
+  const value = Number(text);
+  if (!Number.isInteger(value) || value < 0 || value > 170) {
+    text = ERROR_TEXT;
+    clearState();
+    showSub('');
+    show();
+    return;
+  }
+
+  let result = 1;
+  for (let i = 2; i <= value; i++) {
+    result *= i;
+  }
+
+  text = formatResult(result);
+  show();
+}
+
 /** C 键：全部清零。 */
 function inputClear() {
   text = INITIAL;
@@ -269,6 +293,7 @@ const LAYOUT = [
   ['.', 'decimal'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
+  ['n!', 'factorial'],
   ['(', 'lparen'], [')', 'rparen'], // #43 新增：末行整行放左右括号
   ['复制', 'copy'],
 ];
@@ -284,6 +309,7 @@ const KEY_CLASS = {
   sqrt: 'key--action',
   square: 'key--action',
   reciprocal: 'key--action',
+  factorial: 'key--action',
   lparen: 'key--action', // #43 新增
   rparen: 'key--action',
   copy: 'key--action',
@@ -313,6 +339,8 @@ LAYOUT.forEach(([label, kind]) => {
       inputSquare();
     } else if (kind === 'reciprocal') {
       inputReciprocal();
+    } else if (kind === 'factorial') {
+      inputFactorial();
     } else if (kind === 'copy') {
       inputCopy();
     } else {
