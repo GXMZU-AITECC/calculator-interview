@@ -221,6 +221,15 @@ function inputSquare() {
   text = result;
   show();
 }
+/** 取相反数：正负翻转 */
+function inputNegate() {
+  if (isError()) {
+    return;
+  }
+  const val = Number(text);
+  text = formatResult(-val);
+  show();
+}
 
 /** C 键：全部清零。 */
 function inputClear() {
@@ -440,18 +449,10 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
-document.addEventListener('keydown', function(e) {
-  const key = e.key;
-  if (key === 'n') {
-    if (isError() || text === INITIAL) {
-      return;
-    }
-    if (text.startsWith('-')) {
-      text = text.slice(1);
-    } else {
-      text = '-' + text;
-    }
-    waiting = false;
-show();
+document.addEventListener('keydown', function (e) {
+  if (e.key.toLowerCase() === 'n') {
+    e.preventDefault();
+    inputNegate();
   }
 });
+
