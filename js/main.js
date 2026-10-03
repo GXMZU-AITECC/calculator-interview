@@ -440,3 +440,18 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+document.addEventListener('keydown', function(e) {
+  const key = e.key;
+  if (key === 'n') {
+    if (isError() || text === INITIAL) {
+      return;
+    }
+    if (text.startsWith('-')) {
+      text = text.slice(1);
+    } else {
+      text = '-' + text;
+    }
+    waiting = false;
+show();
+  }
+});
