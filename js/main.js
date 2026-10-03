@@ -222,6 +222,23 @@ function inputSquare() {
   show();
 }
 
+const CONSTANTS = {
+  'π': Math.PI,
+  'e': Math.E,
+};
+
+/** 常量键：把 π 或 e 的值填到主屏。 */
+function inputConstant(name) {
+  const value = CONSTANTS[name];
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  text = formatResult(value);
+  waiting = false;
+  show();
+}
+
 /** 倒数键：对当前显示的数求倒数。 */
 function inputReciprocal() {
   if (isError()) {
@@ -268,6 +285,7 @@ const LAYOUT = [
   ['0', 'digit'], ['−', 'operator'], ['+', 'operator'], ['=', 'equals'],
   ['.', 'decimal'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
   ['x²', 'square'],
+  ['π', 'pi'], ['e', 'e'],
   ['1/x', 'reciprocal'],
   ['(', 'lparen'], [')', 'rparen'], // #43 新增：末行整行放左右括号
   ['复制', 'copy'],
@@ -284,6 +302,8 @@ const KEY_CLASS = {
   sqrt: 'key--action',
   square: 'key--action',
   reciprocal: 'key--action',
+  pi: 'key--action',
+  e: 'key--action',
   lparen: 'key--action', // #43 新增
   rparen: 'key--action',
   copy: 'key--action',
@@ -313,6 +333,10 @@ LAYOUT.forEach(([label, kind]) => {
       inputSquare();
     } else if (kind === 'reciprocal') {
       inputReciprocal();
+    } else if (kind === 'pi') {
+      inputConstant('π');
+    } else if (kind === 'e') {
+      inputConstant('e');
     } else if (kind === 'copy') {
       inputCopy();
     } else {
