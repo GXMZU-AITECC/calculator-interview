@@ -309,7 +309,7 @@ LAYOUT.forEach(([label, kind]) => {
 // 新增：物理键盘输入监听
 // =========================================
 document.addEventListener('keydown', (e) => {
-  if (e.key >= '0' && e.key <= '9') {
+  if (e.key >= '0' && e.key <=== '9') {
     inputDigit(e.key);
   } else if (e.key === '.') {
     inputDecimal();
