@@ -580,3 +580,8 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+// CE：清除当前输入，保留运算状态
+function clearEntry() {
+  text = INITIAL;
+  displayMain.textContent = text;
+}
