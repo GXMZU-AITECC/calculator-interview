@@ -23,11 +23,16 @@ const statusOk = (s) => (s === 'success' ? true : s === 'failure' ? false : null
 /** 去掉 Playwright 等终端颜色码，避免 PR 评论备注栏乱码 */
 function stripAnsi(text) {
   return String(text ?? '')
-    .replace(/\u001B\[[\d;]*[A-Za-z]/g, '')
-    .replace(/\u009B[\d;]*[A-Za-z]/g, '')
-    .replace(/\uFFFD\[([\d;]*)[A-Za-z]/g, '')
-    // ESC 丢失后残留的 [31m / [2m / [22m 等
-    .replace(/\[\d{1,3}(?:;\d{1,3})*m/g, '')
+    // 标准 CSI：ESC[…m / CSI…m
+    .replace(/\u001B\[[\d;?]*[ -/]*[@-~]/g, '')
+    .replace(/\u009B[\d;?]*[ -/]*[@-~]/g, '')
+    // 日志里 ESC 被写成 ^[ 或丢失成 �
+    .replace(/\u001B/g, '')
+    .replace(/\x1B/g, '')
+    .replace(/\uFFFD/g, '')
+    .replace(/\^\[\[?/g, '')
+    // 残留的 [31m / [2m / [22m / [39m 等
+    .replace(/\[\d{1,3}(?:;\d{1,3})*[A-Za-z]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

@@ -1,8 +1,8 @@
 name: Reviewer CI (/ci)
 
 # 仅审核人在 PR 评论 /ci 时跑；不挂 pull_request，避免 fork 刷分钟数。
-# 注意：issue_comment 工作流只从仓库 default branch 加载。
-# 当前组织仓 default 是 main；合并到 develop 后还需进 default branch 才会生效。
+# 注意：issue_comment 工作流只从仓库 default branch 加载（本仓 default=develop）。
+# 被测页面用 PR head；ci/ 工具链始终覆盖为 develop，避免旧 PR 缺 ci/ 或沿用旧 report 导致乱码。
 on:
   issue_comment:
     types: [created]
@@ -102,6 +102,25 @@ jobs:
           repository: ${{ needs.authorize.outputs.head_repo }}
           ref: ${{ needs.authorize.outputs.head_sha }}
 
+      - name: 用 develop 的 ci/ 覆盖工具链
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          sparse-checkout: |
+            ci
+          sparse-checkout-cone-mode: true
+          path: .ci-from-develop
+
+      - name: 安装 develop ci/ 到工作区
+        run: |
+          set -euo pipefail
+          rm -rf ci
+          cp -a .ci-from-develop/ci ci
+          rm -rf .ci-from-develop
+          test -f ci/package-lock.json
+          test -f ci/report.mjs
+          echo "已使用 develop 的 ci/ 工具链"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -112,7 +131,7 @@ jobs:
       - name: Install CI deps
         working-directory: ci
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: 语法与静态前端
