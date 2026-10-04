@@ -8,6 +8,39 @@ async function clickKey(page, label) {
   await key(page, label).click();
 }
 
+/** 收集运行期 pageerror / console.error，避免「能算出数但中途抛了 ReferenceError」漏网 */
+async function withPageErrors(page, run) {
+  const errors = [];
+  const onPage = (e) => errors.push(e.message);
+  const onConsole = (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  };
+  page.on('pageerror', onPage);
+  page.on('console', onConsole);
+  try {
+    await run();
+  } finally {
+    page.off('pageerror', onPage);
+    page.off('console', onConsole);
+  }
+  expect(errors, `运行期不应有错误：${errors.join(' | ')}`).toEqual([]);
+}
+
+// 所有用例默认收集运行期错误：按键分发靠点击+断言，写法（if/switch/映射）不限
+test.beforeEach(async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  page.__ciRuntimeErrors = errors;
+});
+
+test.afterEach(async ({ page }) => {
+  const errors = page.__ciRuntimeErrors || [];
+  expect(errors, `运行期不应有错误：${errors.join(' | ')}`).toEqual([]);
+});
+
 test.describe('前端骨架与样式', () => {
   test('加载无控制台报错；标题与核心区挂载', async ({ page }) => {
     const errors = [];
@@ -47,7 +80,10 @@ test.describe('前端骨架与样式', () => {
     for (const d of ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']) {
       await expect(key(page, d)).toHaveCount(1);
     }
-    for (const label of ['+', '−', '×', '÷', '=', '.', 'C', 'CE', '⌫', '√', '复制']) {
+    for (const label of [
+      '+', '−', '×', '÷', '=', '.', 'C', 'CE', '⌫', '√', 'x²', '1/x', '复制',
+      'MC', 'MR', 'M+', 'M−',
+    ]) {
       await expect(key(page, label)).toHaveCount(1);
     }
   });
@@ -63,12 +99,14 @@ test.describe('四则运算', () => {
     await page.goto('/');
   });
 
-  test('加法：1 + 2 = 得到 3', async ({ page }) => {
-    await clickKey(page, '1');
-    await clickKey(page, '+');
-    await clickKey(page, '2');
-    await clickKey(page, '=');
-    await expect(page.locator('#display-main')).toHaveText('3');
+  test('加法：1 + 2 = 得到 3（且无运行期报错）', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '2');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('3');
+    });
   });
 
   test('减法：9 − 4 = 得到 5', async ({ page }) => {
@@ -145,6 +183,32 @@ test.describe('四则运算', () => {
     await clickKey(page, '3');
     await clickKey(page, '=');
     await expect(page.locator('#display-main')).toHaveText('6');
+  });
+
+  test('连按 =：1 + 2 = = 得到 5（重复上次运算）', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '2');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('3');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('5');
+    });
+  });
+
+  test('括号占位键：点击 ( / ) 不误触发 =', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '2');
+      await clickKey(page, '(');
+      await expect(page.locator('#display-main')).toHaveText('2');
+      await clickKey(page, ')');
+      await expect(page.locator('#display-main')).toHaveText('2');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('3');
+    });
   });
 
   test('按运算符后副显示出现算式提示', async ({ page }) => {
@@ -263,6 +327,48 @@ test.describe('错误态', () => {
     await expect(page.locator('#display-main')).toHaveText('错误');
     await clickKey(page, '5');
     await expect(page.locator('#display-main')).toHaveText('5');
+  });
+});
+
+test.describe('平方 / 倒数 / 内存键', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('平方：5 → x² 得到 25', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '5');
+      await clickKey(page, 'x²');
+      await expect(page.locator('#display-main')).toHaveText('25');
+    });
+  });
+
+  test('倒数：4 → 1/x 得到 0.25', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '4');
+      await clickKey(page, '1/x');
+      await expect(page.locator('#display-main')).toHaveText('0.25');
+    });
+  });
+
+  test('内存：M+ / MR / M− / MC', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '0');
+      await clickKey(page, 'M+');
+      await clickKey(page, 'C');
+      await clickKey(page, 'MR');
+      await expect(page.locator('#display-main')).toHaveText('10');
+      await clickKey(page, '3');
+      await clickKey(page, 'M−');
+      await clickKey(page, 'C');
+      await clickKey(page, 'MR');
+      await expect(page.locator('#display-main')).toHaveText('7');
+      await clickKey(page, 'MC');
+      await clickKey(page, 'C');
+      await clickKey(page, 'MR');
+      await expect(page.locator('#display-main')).toHaveText('0');
+    });
   });
 });
 

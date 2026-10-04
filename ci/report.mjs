@@ -82,7 +82,7 @@ const overall =
 const lines = [];
 lines.push(overall === true ? '## ✅ Reviewer CI 报告' : overall === false ? '## ❌ Reviewer CI 报告' : '## ➖ Reviewer CI 报告');
 lines.push('');
-lines.push('覆盖范围：**语法 + 静态前端骨架/CSS + develop 基线功能冒烟**（非像素级视觉全量）。');
+lines.push('覆盖范围：**语法 + ESLint no-undef + 静态前端骨架/CSS + Playwright 基线点击/结果冒烟（含运行期报错）**（非像素级视觉全量）。');
 lines.push(`触发口令：\`/ci\` · 仅 \`@GXMZU-AITECC/reviewers\` 可启动`);
 if (runUrl) lines.push(`完整日志：[Actions run](${runUrl})`);
 lines.push('');
@@ -91,7 +91,7 @@ lines.push('### 1. 语法与静态前端');
 lines.push('');
 lines.push(`| 项 | 结果 |`);
 lines.push(`| --- | --- |`);
-lines.push(`| HTML 骨架 / CSS 存在 / \`main.js\` 语法 / 无 CDN·import | ${icon(staticOk)} ${staticStatus} |`);
+lines.push(`| HTML/CSS/\`main.js\` 语法 · ESLint no-undef · 无 CDN·import | ${icon(staticOk)} ${staticStatus} |`);
 lines.push('');
 
 lines.push('### 2. 已跑功能与前端案例（浏览器）');

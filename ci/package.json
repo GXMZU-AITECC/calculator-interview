@@ -4,11 +4,14 @@
   "description": "审核人 /ci 触发的基础回归；候选人日常开发无需安装",
   "scripts": {
     "syntax": "node --check ../js/main.js",
+    "lint:undef": "node static-check.mjs",
     "static": "node static-check.mjs",
     "test": "playwright test",
     "ci": "npm run static && npm test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.2"
+    "@playwright/test": "^1.48.2",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0"
   }
 }
