@@ -692,6 +692,21 @@ if (historyPanel && historyList) {
   clearButton.addEventListener('click', clearHistory);
   head.appendChild(clearButton);
 }
+// CE按键：清除当前输入，保留历史记录
+let inputStr = '';
+
+function updateDisplay() {
+    displayMain.textContent = inputStr;
+    displaySub.textContent = '';
+}
+
+const ceBtn = document.querySelector('button[data-key="CE"]');
+if (ceBtn) {
+    ceBtn.addEventListener('click', function () {
+        inputStr = '';
+        updateDisplay();
+    });
+}
 
 // 初始化
 loadHistory();
