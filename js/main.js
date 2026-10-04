@@ -457,3 +457,16 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+//求两个数字的最大公约数
+function gcd(a,b){
+  let num1=Math.abs(a);
+  let num2=Math.abs(b);
+  while (num2!==0){
+    let remainder=num1%num2;
+    num1=num2;
+    num2=remainder;
+  }
+  return num1;
+}
+
+l
