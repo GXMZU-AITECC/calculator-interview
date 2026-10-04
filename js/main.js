@@ -1,6 +1,49 @@
 const displayMain = document.getElementById('display-main');
 const displaySub = document.getElementById('display-sub');
 const keyboard = document.getElementById('keyboard');
+function handleKeyAction(kind) {
+  switch (kind) {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      appendDigit(kind);
+      break;
+    case '.':
+      appendDot();
+      break;
+    case '+':
+      setOperator('+');
+      break;
+    case '-':
+      setOperator('-');
+      break;
+    case '*':
+      setOperator('*');
+      break;
+    case '/':
+      setOperator('/');
+      break;
+    case '=':
+      calculate();
+      break;
+    case 'C':
+      clearAll();
+      break;
+    case 'CE':
+      clearEntry();
+      break;
+    case 'backspace':
+      backspace();
+      break;
+    case 'x²':
+      square();
+      break;
+    case 'copy':
+      copyResult();
+      break;
+    default:
+      break;
+  }
+}
 
 // 获取历史记录列表容器
 const historyList = document.getElementById('history-list');
@@ -277,6 +320,15 @@ function inputSquare() {
   text = result;
   show();
 }
+/** 取相反数：正负翻转 */
+function inputNegate() {
+  if (isError()) {
+    return;
+  }
+  const val = Number(text);
+  text = formatResult(-val);
+  show();
+}
 
 /** 倒数键：对当前显示的数求倒数。 */
 function inputReciprocal() {
@@ -416,10 +468,17 @@ LAYOUT.forEach(([label, kind]) => {
       inputClearEntry();
     } else if (kind === 'sqrt') {
       inputSqrt();
+
+}
+handleKeyAction(kind, label); // 分发逻辑统一收口到 handleKeyAction（原 if/else 原样搬移）
+
     } else if (kind === 'square') {
       inputSquare();
     } else if (kind === 'reciprocal') {
       inputReciprocal();
+      } else if (kind === 'negate') {
+  } else if (kind === 'negate') 
+  inputNegate();
     } else if (kind === 'percent') {
       inputPercent();
     } else if (kind === 'copy') {
@@ -437,6 +496,7 @@ LAYOUT.forEach(([label, kind]) => {
     } else {
       inputEquals();
     }
+
   });
   keyboard.appendChild(button);
 });
@@ -580,3 +640,10 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+document.addEventListener('keydown', function (e) {
+  if (e.key.toLowerCase() === 'n') {
+    e.preventDefault();
+    inputNegate();
+  }
+});
+
