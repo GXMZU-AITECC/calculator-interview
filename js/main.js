@@ -457,3 +457,17 @@ document.addEventListener('keydown', function(e) {
     toggleNeg();
   }
 })
+//退格删除函数
+function backspaceDel(){
+  if(displayValue.length > 0){
+    displayValue = displayValue.slice(0,-1);
+    updateDisplay();
+  }
+}
+
+//监听键盘Backspace按键
+document.addEventListener('keydown',function(e){
+  if(e.key === "Backspace"){
+    backspaceDel();
+  }
+})
