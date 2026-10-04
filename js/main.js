@@ -604,3 +604,16 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+// 正负切换功能
+function toggleSign(num) {
+  return -num;
+}
+
+// 正负按钮点击处理
+function toggleSignClick() {
+  let num = parseFloat(text);
+  if (!isNaN(num)) {
+    text = String(toggleSign(num));
+    show();
+  }
+}
