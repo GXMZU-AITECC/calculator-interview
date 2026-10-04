@@ -519,14 +519,17 @@ document.addEventListener('keydown', (e) => {
     inputOperator('÷');
   } else if (e.key === 'Enter' || e.key === '=') {
     inputEquals();
-  } else if (e.key === 'Backspace') {
+  
+    } else if (e.key === 'Backspace') {
     inputBackspace();
+  } else if (e.key === 'n') {
+    inputNegate();
   } else if (e.key === 'Escape' || e.key.toLowerCase() === 'c') {
     inputClear();
   } else {
     return;
   }
-  e.preventDefault();
+e.preventDefault();
 });
 
 // =========================================
