@@ -1,49 +1,6 @@
 const displayMain = document.getElementById('display-main');
 const displaySub = document.getElementById('display-sub');
 const keyboard = document.getElementById('keyboard');
-function handleKeyAction(kind) {
-  switch (kind) {
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
-      appendDigit(kind);
-      break;
-    case '.':
-      appendDot();
-      break;
-    case '+':
-      setOperator('+');
-      break;
-    case '-':
-      setOperator('-');
-      break;
-    case '*':
-      setOperator('*');
-      break;
-    case '/':
-      setOperator('/');
-      break;
-    case '=':
-      calculate();
-      break;
-    case 'C':
-      clearAll();
-      break;
-    case 'CE':
-      clearEntry();
-      break;
-    case 'backspace':
-      backspace();
-      break;
-    case 'x²':
-      square();
-      break;
-    case 'copy':
-      copyResult();
-      break;
-    default:
-      break;
-  }
-}
 
 // 获取历史记录列表容器
 const historyList = document.getElementById('history-list');
@@ -220,7 +177,6 @@ function inputEquals() {
 
   text = formatResult(acc);
 
-  // line 在 applyPending 之前就算好了，左侧操作数不会被结果覆盖（原来这里把 acc 用成了结果）
   recordHistory(line, text);
 
   clearState();
@@ -320,13 +276,17 @@ function inputSquare() {
   text = result;
   show();
 }
+
 /** 取相反数：正负翻转 */
 function inputNegate() {
   if (isError()) {
     return;
   }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
   const val = Number(text);
-  text = formatResult(-val);
+  const res = -val === 0 ? 0 : -val;
+  text = formatResult(res);
+  waiting = false;
   show();
 }
 
@@ -369,6 +329,7 @@ function inputCopy() {
     .then(() => showSub('已复制'))
     .catch(() => showSub('复制失败'));
 }
+
 /** 内存加：把当前显示的数加到内存里。 */
 function inputMemoryAdd() {
   if (isError()) {
@@ -400,6 +361,7 @@ function inputMemoryRecall() {
   if (isError()) {
     return;
   }
+  canRepeat = false;
   text = formatResult(memory);
   waiting = true;
   show();
@@ -408,6 +370,71 @@ function inputMemoryRecall() {
 /** 内存清：把内存归零。 */
 function inputMemoryClear() {
   memory = 0;
+}
+
+// ---------------------------------------------------------------
+// 统一按键分发：kind 对应 LAYOUT 里的类型，label 是按钮文字
+// ---------------------------------------------------------------
+function handleKeyAction(kind, label) {
+  switch (kind) {
+    case 'digit':
+      inputDigit(label);
+      break;
+    case 'operator':
+      inputOperator(label);
+      break;
+    case 'decimal':
+      inputDecimal();
+      break;
+    case 'clear':
+      inputClear();
+      break;
+    case 'backspace':
+      inputBackspace();
+      break;
+    case 'clearEntry':
+      inputClearEntry();
+      break;
+    case 'sqrt':
+      inputSqrt();
+      break;
+    case 'square':
+      inputSquare();
+      break;
+    case 'reciprocal':
+      inputReciprocal();
+      break;
+    case 'negate':
+      inputNegate();
+      break;
+    case 'percent':
+      inputPercent();
+      break;
+    case 'copy':
+      inputCopy();
+      break;
+    case 'mc':
+      inputMemoryClear();
+      break;
+    case 'mr':
+      inputMemoryRecall();
+      break;
+    case 'mplus':
+      inputMemoryAdd();
+      break;
+    case 'mminus':
+      inputMemorySubtract();
+      break;
+    case 'lparen':
+    case 'rparen':
+      // 括号键占位：尚无表达式解析，忽略点击，避免误触发 =
+      break;
+    case 'equals':
+      inputEquals();
+      break;
+    default:
+      break;
+  }
 }
 
 // ---------------------------------------------------------------
@@ -421,10 +448,11 @@ const LAYOUT = [
   ['.', 'decimal'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
-  ['(', 'lparen'], [')', 'rparen'], // #43 新增：末行整行放左右括号
+  ['(', 'lparen'], [')', 'rparen'],
   ['复制', 'copy'],
   ['MC', 'mc'], ['MR', 'mr'], ['M+', 'mplus'], ['M−', 'mminus'],
-  ['%', 'percent'], // #33 新增：百分号键
+  ['%', 'percent'],
+  ['±', 'negate'],
 ];
 
 const KEY_CLASS = {
@@ -439,7 +467,8 @@ const KEY_CLASS = {
   square: 'key--action',
   percent: 'key--action',
   reciprocal: 'key--action',
-  lparen: 'key--action', // #43 新增
+  negate: 'key--action',
+  lparen: 'key--action',
   rparen: 'key--action',
   copy: 'key--action',
   mc: 'key--action',
@@ -451,89 +480,47 @@ const KEY_CLASS = {
 LAYOUT.forEach(([label, kind]) => {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = `key ${KEY_CLASS[kind]}`;
+  button.className = `key ${KEY_CLASS[kind] || 'key--normal'}`;
   button.textContent = label;
-  button.addEventListener('click', () => {
-    if (kind === 'digit') {
-      inputDigit(label);
-    } else if (kind === 'operator') {
-      inputOperator(label);
-    } else if (kind === 'decimal') {
-      inputDecimal();
-    } else if (kind === 'clear') {
-      inputClear();
-    } else if (kind === 'backspace') {
-      inputBackspace();
-    } else if (kind === 'clearEntry') {
-      inputClearEntry();
-    } else if (kind === 'sqrt') {
-      inputSqrt();
-
-}
-handleKeyAction(kind, label); // 分发逻辑统一收口到 handleKeyAction（原 if/else 原样搬移）
-
-    } else if (kind === 'square') {
-      inputSquare();
-    } else if (kind === 'reciprocal') {
-      inputReciprocal();
-      } else if (kind === 'negate') {
-  } else if (kind === 'negate') 
-  inputNegate();
-    } else if (kind === 'percent') {
-      inputPercent();
-    } else if (kind === 'copy') {
-      inputCopy();
-    } else if (kind === 'mc') {
-      inputMemoryClear();
-    } else if (kind === 'mr') {
-      inputMemoryRecall();
-    } else if (kind === 'mplus') {
-      inputMemoryAdd();
-    } else if (kind === 'mminus') {
-      inputMemorySubtract();
-    } else if (kind === 'lparen' || kind === 'rparen') {
-      // 括号键占位：尚无表达式解析，忽略点击，避免误触发 =
-    } else {
-      inputEquals();
-    }
-
-  });
+  button.addEventListener('click', () => handleKeyAction(kind, label));
   keyboard.appendChild(button);
 });
 
 // =========================================
-// 新增：物理键盘输入监听
+// 物理键盘输入监听（只此一处，避免重复触发）
 // =========================================
 document.addEventListener('keydown', (e) => {
-  if (e.key >= '0' && e.key <= '9') {
-    inputDigit(e.key);
-  } else if (e.key === '.') {
+  const key = e.key;
+
+  if (key >= '0' && key <= '9') {
+    inputDigit(key);
+  } else if (key === '.') {
     inputDecimal();
-  } else if (e.key === '+') {
+  } else if (key === '+') {
     inputOperator('+');
-  } else if (e.key === '-') {
+  } else if (key === '-') {
     inputOperator('−');
-  } else if (e.key === '*') {
+  } else if (key === '*') {
     inputOperator('×');
-  } else if (e.key === '/') {
+  } else if (key === '/') {
     inputOperator('÷');
-  } else if (e.key === 'Enter' || e.key === '=') {
+  } else if (key === 'Enter' || key === '=') {
     inputEquals();
-  
-    } else if (e.key === 'Backspace') {
+  } else if (key === 'Backspace') {
     inputBackspace();
-  } else if (e.key === 'n') {
+  } else if (key.toLowerCase() === 'n') {
     inputNegate();
-  } else if (e.key === 'Escape' || e.key.toLowerCase() === 'c') {
+  } else if (key === 'Escape' || key.toLowerCase() === 'c') {
     inputClear();
   } else {
-    return;
+    return; // 未处理的按键不阻止默认行为
   }
-e.preventDefault();
+
+  e.preventDefault();
 });
 
 // =========================================
-// 新增：历史记录增强（持久化 / 点击回填 / 清空）
+// 历史记录增强（持久化 / 点击回填 / 清空）
 // 复用已合并的 #history-list 面板，不新增面板、不改显示区
 // =========================================
 const HISTORY_KEY = 'calculator-history'; // localStorage 里的存储键
@@ -643,10 +630,3 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
-document.addEventListener('keydown', function (e) {
-  if (e.key.toLowerCase() === 'n') {
-    e.preventDefault();
-    inputNegate();
-  }
-});
-
