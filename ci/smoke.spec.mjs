@@ -436,6 +436,14 @@ test.describe('物理键盘', () => {
     await page.keyboard.press('=');
     await expect(page.locator('#display-main')).toHaveText('4');
   });
+test('物理键盘 > n键：翻转数字正负号', async ({ page }) => {
+  await page.keyboard.type('123');
+  await expect(page.locator('#display-main')).toHaveText('123');
+  await page.keyboard.press('n');
+  await expect(page.locator('#display-main')).toHaveText('-123');
+  await page.keyboard.press('n');
+  await expect(page.locator('#display-main')).toHaveText('123');
+});
 
   test('物理键 -：9-4 得到 5', async ({ page }) => {
     await page.keyboard.type('9');
