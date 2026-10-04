@@ -440,3 +440,20 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+// 取相反数功能
+function toggleNeg() {
+  if (text === INITIAL) return;
+  if (text.startsWith('-')) {
+    text = text.slice(1);
+  } else {
+    text = '-' + text;
+  }
+  show();
+}
+
+// 键盘快捷键：按n键切换正负
+document.addEventListener('keydown', function(e) {
+  if (e.key.toLowerCase() === 'n') {
+    toggleNeg();
+  }
+})
