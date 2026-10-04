@@ -320,6 +320,26 @@ function inputReciprocal() {
   show();
 }
 
+/** ± 键：切换当前显示数字的正负；0（含 0.0）保持不变。 */
+function inputPlusMinus() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+
+  const value = Number(text);
+  if (value === 0) {
+    return; // 验收标准 2：0.0 点击 ± 依旧为 0.0
+  }
+
+  if (text.startsWith('-')) {
+    text = text.slice(1); // 负数变回正数
+  } else {
+    text = `-${text}`; // 正数变为负数
+  }
+  show();
+}
+
 /** C 键：全部清零。 */
 function inputClear() {
   text = INITIAL;
@@ -397,6 +417,7 @@ const LAYOUT = [
   ['复制', 'copy'],
   ['MC', 'mc'], ['MR', 'mr'], ['M+', 'mplus'], ['M−', 'mminus'],
   ['%', 'percent'], // #33 新增：百分号键
+  ['±', 'plusMinus'], // #102 新增：正负切换键
 ];
 
 const KEY_CLASS = {
@@ -410,6 +431,7 @@ const KEY_CLASS = {
   sqrt: 'key--action',
   square: 'key--action',
   percent: 'key--action',
+  plusMinus: 'key--action',
   reciprocal: 'key--action',
   lparen: 'key--action', // #43 新增
   rparen: 'key--action',
@@ -446,6 +468,8 @@ LAYOUT.forEach(([label, kind]) => {
       inputReciprocal();
     } else if (kind === 'percent') {
       inputPercent();
+    } else if (kind === 'plusMinus') {
+      inputPlusMinus();
     } else if (kind === 'copy') {
       inputCopy();
     } else if (kind === 'mc') {
