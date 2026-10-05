@@ -143,6 +143,13 @@ function applyPending() {
 // 按键行为
 // ---------------------------------------------------------------
 function inputDigit(digit) {
+  // 00 双零键：等价于连按两次 0。复用本函数的语义，
+  // 天然不会产生 "00" 这种前导零，也不会破坏小数。
+  if (digit === '00') {
+    inputDigit('0');
+    inputDigit('0');
+    return;
+  }
   if (isError()) {
     text = INITIAL;
   }
@@ -583,7 +590,7 @@ const LAYOUT = [
   ['4', 'digit'], ['5', 'digit'], ['6', 'digit'], ['÷', 'operator'],
   ['1', 'digit'], ['2', 'digit'], ['3', 'digit'], ['×', 'operator'],
   ['0', 'digit'], ['−', 'operator'], ['+', 'operator'], ['=', 'equals'],
-  ['.', 'decimal'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
+  ['.', 'decimal'], ['00', 'digit'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
   ['|x|', 'abs'],
@@ -604,7 +611,7 @@ const KEY_CLASS = {
   clear: 'key--danger',
   equals: 'key--success',
   decimal: 'key--normal',
-  backspace: 'key--action',
+  backspace: 'key--backspace',
   clearEntry: 'key--danger',
   sqrt: 'key--action',
   square: 'key--action',

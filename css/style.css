@@ -8,17 +8,18 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #1a1d24;            /* 页面背景 */
-  --panel: #222733;         /* 计算器面板 */
-  --display-bg: #2b303e;    /* 显示区背景 */
-  --display-text: #f5f6fa;  /* 主屏文字 */
-  --text-sub: #8a90a0;      /* 副屏/次要文字 */
+  --bg: #c6d5f8;            /* 页面背景 */
+  --panel: #203052;         /* 计算器面板 */
+  --display-bg: #cacded;    /* 显示区背景 */
+  --display-text: #020202;  /* 主屏文字 */
+  --text-sub: #898b91;      /* 副屏/次要文字 */
 
   /* 按键配色（对应 Python 版 view.py 的 colors 表） */
-  --key-normal: #576574;    /* 数字键 */
-  --key-action: #54a0ff;    /* 运算符键 */
-  --key-danger: #ff6b6b;    /* CLEAR 键 */
-  --key-success: #1dd1a1;   /* 等号键 */
+  --key-normal: #e7e7e7;    /* 数字键 */
+  --key-action: #fd8821;    /* 运算符键 */
+  --key-danger: #fa6666;    /* CLEAR 键 */
+  --key-success: #26e9b5;   /* 等号键 */
+  --key-backspace: #d4aded;  /* 新增退格键颜色*/
 }
 
 body {
@@ -43,11 +44,11 @@ body {
 
 /* ---------- 显示区（种子已就绪） ---------- */
 .display__main {
-  height: 60px;
+  height: 90px;
   padding: 0 12px;
-  font-size: 32px;
+  font-size: 48px;
   font-weight: bold;
-  line-height: 60px;
+  line-height: 90px;
   color: var(--display-text);
   background: var(--display-bg);
   border: 2px solid #3a4152;
@@ -72,7 +73,7 @@ body {
 .display__sub {
   min-height: 18px;
   padding: 4px 6px 0;
-  font-size: 12px;
+  font-size: 20px;
   color: var(--text-sub);
   text-align: right;
 }
@@ -92,9 +93,9 @@ body {
   /* 与面板同一套曲率语言，层级递减（#120） */
   border-radius: 18px;
   corner-shape: squircle;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: bold;
-  color: #fff;
+  color: #323232;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   /* 按下反馈用 transform 实现：纯视觉，不参与布局、不会挤动其它键（#121） */
@@ -113,6 +114,7 @@ body {
 .key--action  { background: var(--key-action); }   /* 运算符键 */
 .key--danger  { background: var(--key-danger); }   /* CLEAR 键 */
 .key--success { background: var(--key-success); }  /* 等号键 */
+.key--backspace { background: var(--key-backspace); }  /* 新增退格键样式类 */
 
 .key--wide { grid-column: span 2; }  /* 占两列（如 0 键，对应 Python 版 colspan=2） */
 /* =========================================
