@@ -35,7 +35,9 @@ body {
   width: 340px;
   padding: 20px;
   background: var(--panel);
-  border-radius: 16px;
+  /* 连续曲率圆角（squircle）：Chrome 139+ 生效，其余浏览器退化为普通圆角（#120） */
+  border-radius: 30px;
+  corner-shape: squircle;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
 }
 
@@ -49,10 +51,22 @@ body {
   color: var(--display-text);
   background: var(--display-bg);
   border: 2px solid #3a4152;
-  border-radius: 10px;
+  /* 与面板同一套曲率语言，层级递减（#120） */
+  border-radius: 16px;
+  corner-shape: squircle;
   text-align: right;
   overflow-x: auto;      /* 内容过长时横向滚动 */
   white-space: nowrap;
+  /* 只隐藏滚动条外观，滚动能力保留（#123） */
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* 旧 Edge / IE */
+}
+
+/* Chromium / Safari：把滚动条画成 0 尺寸（#123） */
+.display__main::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .display__sub {
@@ -75,15 +89,25 @@ body {
 .key {
   height: 52px;
   border: none;
-  border-radius: 8px;
+  /* 与面板同一套曲率语言，层级递减（#120） */
+  border-radius: 18px;
+  corner-shape: squircle;
   font-size: 18px;
   font-weight: bold;
   color: #fff;
   cursor: pointer;
-  transition: filter .15s;
+  -webkit-tap-highlight-color: transparent;
+  /* 按下反馈用 transform 实现：纯视觉，不参与布局、不会挤动其它键（#121） */
+  transition: transform .12s ease, filter .15s;
 }
 .key:hover  { filter: brightness(1.15); }
-.key:active { filter: brightness(.9); }
+.key:active { transform: scale(.94); filter: brightness(.9); }
+
+/* 尊重系统的「减少动态效果」偏好：不做缩放，只保留亮度反馈 */
+@media (prefers-reduced-motion: reduce) {
+  .key { transition: none; }
+  .key:active { transform: none; }
+}
 
 .key--normal  { background: var(--key-normal); }   /* 数字键 */
 .key--action  { background: var(--key-action); }   /* 运算符键 */

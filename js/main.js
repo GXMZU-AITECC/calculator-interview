@@ -15,8 +15,32 @@ const historyPanel = document.getElementById('history-panel');
  * @returns {number} 两数之和
  */
 function add(a, b) {
+  // TODO: 整个计算器现在只会这一件事，而且还没实现——等着你的 PR
   return a + b;
 }
+/**
+ * 常用对数 log10
+ * @param {number} x 输入数字
+ * @returns {number|string} 以10为底的对数，x≤0返回非法输入
+ */
+function log10(x) {
+  if(x <= 0){
+    return "非法输入";
+  }
+  const res = Math.log10(x);
+  return Number(res.toPrecision(10));
+}
+
+/**
+ * 10的x次方
+ * @param {number} x 指数
+ * @returns {number} 10^x计算结果
+ */
+function pow10(x) {
+  const res = Math.pow(10, x);
+  return Number(res.toPrecision(10));
+}
+
 
 // ---------------------------------------------------------------
 // 计算状态
@@ -35,8 +59,30 @@ let lastOp = null;
 let lastRight = null;
 let canRepeat = false;
 
+// ---------------------------------------------------------------
+// 主显示区字号自适应：位数多到装不下就逐像素缩小，缩到下限为止（#124）
+// ---------------------------------------------------------------
+// 基准字号直接读样式表，避免和 css/style.css 的 32px 各写一份
+const DISPLAY_FONT_BASE = parseFloat(getComputedStyle(displayMain).fontSize) || 32;
+const DISPLAY_FONT_MIN = 14; // 最小字号：再长也不小于它，超出部分交给横向滚动
+
+/** 先回到基准字号；装不下就逐像素缩小，直到不再溢出或触到最小字号。 */
+function fitDisplayFont() {
+  displayMain.style.fontSize = '';
+  if (displayMain.scrollWidth <= displayMain.clientWidth) {
+    return; // 装得下，保持样式表里的基准字号
+  }
+  for (let size = DISPLAY_FONT_BASE - 1; size >= DISPLAY_FONT_MIN; size -= 1) {
+    displayMain.style.fontSize = `${size}px`;
+    if (displayMain.scrollWidth <= displayMain.clientWidth) {
+      return;
+    }
+  }
+}
+
 function show() {
   displayMain.textContent = text;
+  fitDisplayFont();
 }
 
 function showSub(line) {
@@ -61,7 +107,10 @@ const OPERATORS = {
   '−': (a, b) => a - b,
   '×': (a, b) => a * b,
   '÷': (a, b) => a / b,
-};
+ 'xʸ': (a, b) => Math.pow(a, b), // 新增：任意次幂 xʸ
+ 'ʸ√x': (a, b) => (a < 0 && b % 2 === 1) ? -Math.pow(-a, 1 / b) : Math.pow(a, 1 / b), // ← 新增：n 次方根，b 是根指数
+};  
+
 
 function formatResult(n) {
   if (!Number.isFinite(n)) {
@@ -181,13 +230,24 @@ function inputEquals() {
   recordHistory(line, text);
 
   clearState();
+  parenStack.length = 0; // 未闭合的括号随本次求值一并作废
   waiting = true;
   showSub(line);
   show();
 }
 
 function inputBackspace() {
-  if (waiting || isError()) {
+  if (isError()) {
+    return;
+  }
+  // π 整体删除：当前显示的就是 π 的值时，一次退格全删
+  if (text === PI_TEXT) {
+    text = INITIAL;
+    waiting = false;
+    show();
+    return;
+  }
+  if (waiting) {
     return;
   }
 
@@ -304,6 +364,68 @@ function inputAbs() {
   const value = Number(text);
   text = formatResult(Math.abs(value));
 
+/** π 键：输入圆周率的近似值（用浮点近似，不做高精度符号显示）。 */
+const PI_TEXT = formatResult(Math.PI);
+
+function inputPi() {
+  if (isError()) {
+    text = INITIAL;
+  }
+  text = PI_TEXT;
+  waiting = true;
+  show();
+}
+
+// ---------------------------------------------------------------
+// 三角函数与角度模式（DEG/RAD）
+// ---------------------------------------------------------------
+let useDegrees = true; // 默认角度制 DEG
+
+/** DEG/RAD 切换键：翻转角度模式；无 pending 运算时在副屏提示当前模式。 */
+function toggleAngleMode() {
+  useDegrees = !useDegrees;
+  if (pendingOp === null) {
+    showSub(useDegrees ? '角度制 DEG' : '弧度制 RAD');
+  }
+}
+
+/**
+ * 三角函数键：对当前显示值求 sin/cos/tan，行为与 √ 等一元运算键一致。
+ * @param {string} name 函数名：'sin' | 'cos' | 'tan'
+ */
+function inputTrig(name) {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+
+  const value = Number(text);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  // DEG 模式先把角度换算成弧度；RAD 模式直接用输入值
+  const angle = useDegrees ? (value * Math.PI) / 180 : value;
+
+  // tan 在 90°（π/2）等无定义处：余弦接近 0，按「错误」处理，不显示 Infinity。
+  // 阈值取 1e-10：显示值只有 12 位有效数字，离 π/2 这么近的输入就视为 π/2
+  if (name === 'tan' && Math.abs(Math.cos(angle)) < 1e-10) {
+    text = ERROR_TEXT;
+    clearState();
+    showSub('');
+    show();
+    return;
+  }
+
+  let result = Math[name](angle);
+
+  // 浮点残差清理：结果绝对值过小时归零（如 sin 180° ≈ 1.2e-16 应显示 0）
+  if (Math.abs(result) < 1e-12) {
+    result = 0;
+  }
+
+  text = formatResult(result);
+
   if (text === ERROR_TEXT) {
     clearState();
     showSub('');
@@ -311,10 +433,90 @@ function inputAbs() {
 
   show();
 }
+
+// ---------------------------------------------------------------
+// 括号：用栈暂存外层上下文，按下 ) 时把括号内的算式求值
+// ---------------------------------------------------------------
+
+// 每层存 { acc, pendingOp }，即按下 ( 那一刻的外层运算上下文
+const parenStack = [];
+
+/** 左括号键：开一个子表达式，把外层上下文压栈，当前算式从零开始。 */
+function inputLParen() {
+  if (isError()) {
+    return;
+  }
+  // 只有在「正等着一个操作数」的位置才允许开括号：刚按下运算符、刚求值完（waiting），
+  // 或空白起点（C 之后）。其余位置一律忽略——刚打完一个数字再按 (（如 1 + 2 后的那个 (）
+  // 或刚闭合一个括号，都还没有运算符衔接，开了就会出现 5( 这种缺运算符的式子
+  const expectingOperand = waiting || (pendingOp === null && text === INITIAL);
+  if (!expectingOperand) {
+    return;
+  }
+
+  parenStack.push({ acc, pendingOp });
+  acc = null;
+  pendingOp = null;
+  text = INITIAL;
+  waiting = false;
+  canRepeat = false; // 换到子表达式，连算资格作废
+  show();
+}
+
+/** 右括号键：先把括号内的算式算完，再把结果并回外层上下文。 */
+function inputRParen() {
+  if (isError() || parenStack.length === 0) {
+    return; // 没有未闭合的 ( ，忽略点击
+  }
+
+  // 括号内还有没算完的运算（如 2 + 3），先算掉
+  if (pendingOp !== null && !waiting) {
+    if (!applyPending()) {
+      parenStack.length = 0; // 求值出错（如除零），整串括号一并作废
+      return;
+    }
+    text = formatResult(acc);
+  }
+
+  const value = text;
+  const outer = parenStack.pop();
+
+  // 括号结果并回外层：外层有运算符就等按 = 时合并，没有它就是整个式子
+  acc = outer.acc;
+  pendingOp = outer.pendingOp;
+  text = value;
+  // 外层没有运算符 → 这个括号就是整个式子，结果等同于按完 = ，下一个数字另起一轮；
+  // 外层还有运算符 → 括号结果是一个待合并的操作数，与刚打完一个数同构
+  waiting = outer.pendingOp === null;
+  canRepeat = false;
+  show();
+}
+
+/** ± 键：切换当前显示数字的正负；0（含 0.0）保持不变。 */
+function inputPlusMinus() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+
+  const value = Number(text);
+  if (value === 0) {
+    return; // 验收标准 2：0.0 点击 ± 依旧为 0.0
+  }
+
+  if (text.startsWith('-')) {
+    text = text.slice(1); // 负数变回正数
+  } else {
+    text = `-${text}`; // 正数变为负数
+  }
+  show();
+}
+
 /** C 键：全部清零。 */
 function inputClear() {
   text = INITIAL;
   clearState();
+  parenStack.length = 0; // 未闭合的括号一并清零
   lastOp = null; // 连算记忆一并清除
   lastRight = null;
   canRepeat = false;
@@ -385,10 +587,16 @@ const LAYOUT = [
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
   ['|x|', 'abs'],
+  ['π', 'pi'],
   ['(', 'lparen'], [')', 'rparen'], // #43 新增：末行整行放左右括号
   ['复制', 'copy'],
   ['MC', 'mc'], ['MR', 'mr'], ['M+', 'mplus'], ['M−', 'mminus'],
   ['%', 'percent'], // #33 新增：百分号键
+  ['sin', 'trig'], ['cos', 'trig'], ['tan', 'trig'], // 三角函数键
+  ['DEG', 'angleMode'], // 角度/弧度切换键：键面文字随当前模式变化
+  ['xʸ', 'operator'], // 新增：任意次幂键
+  ['±', 'plusMinus'], // #102 新增：正负切换键
+  ['ʸ√x', 'operator'], // ← 新增：n 次方根键
 ];
 const KEY_CLASS = {
   digit: 'key--normal',
@@ -401,8 +609,10 @@ const KEY_CLASS = {
   sqrt: 'key--action',
   square: 'key--action',
   percent: 'key--action',
+  plusMinus: 'key--action',
   reciprocal: 'key--action',
  abs: 'key--action', 
+  pi: 'key--action',
   lparen: 'key--action', // #43 新增
   rparen: 'key--action',
   copy: 'key--action',
@@ -410,6 +620,8 @@ const KEY_CLASS = {
   mr: 'key--action',
   mplus: 'key--action',
   mminus: 'key--action',
+  trig: 'key--action', // 三角函数键
+  angleMode: 'key--action', // 角度/弧度切换键
 };
 
 LAYOUT.forEach(([label, kind]) => {
@@ -440,6 +652,10 @@ LAYOUT.forEach(([label, kind]) => {
       inputReciprocal();
     } else if (kind === 'percent') {
       inputPercent();
+    } else if (kind === 'pi') {
+      inputPi();
+    } else if (kind === 'plusMinus') {
+      inputPlusMinus();
     } else if (kind === 'copy') {
       inputCopy();
     } else if (kind === 'mc') {
@@ -450,8 +666,15 @@ LAYOUT.forEach(([label, kind]) => {
       inputMemoryAdd();
     } else if (kind === 'mminus') {
       inputMemorySubtract();
-    } else if (kind === 'lparen' || kind === 'rparen') {
-      // 括号键占位：尚无表达式解析，忽略点击，避免误触发 =
+    } else if (kind === 'trig') {
+      inputTrig(label);
+    } else if (kind === 'angleMode') {
+      toggleAngleMode();
+      button.textContent = useDegrees ? 'DEG' : 'RAD';
+    } else if (kind === 'lparen') {
+      inputLParen();
+    } else if (kind === 'rparen') {
+      inputRParen();
     } else {
       inputEquals();
     }

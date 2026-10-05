@@ -1,8 +1,9 @@
 name: Reviewer CI (/ci)
 
 # 仅审核人在 PR 评论 /ci 时跑；不挂 pull_request，避免 fork 刷分钟数。
-# 注意：issue_comment 工作流只从仓库 default branch 加载。
-# 当前组织仓 default 是 main；合并到 develop 后还需进 default branch 才会生效。
+# 注意：issue_comment 工作流只从仓库 default branch 加载（本仓 default = develop）。
+# 被测页面用 PR head（index.html / css / js）；ci/ 工具链始终从 develop 覆盖，
+# 避免：旧 PR 备注乱码、缺 ci/ 哑火、候选人改弱冒烟刷绿。
 on:
   issue_comment:
     types: [created]
@@ -89,18 +90,40 @@ jobs:
           gh api \
             --method POST \
             "/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
-            -f body="▶️ 审核人 @${{ github.event.comment.user.login }} 触发了 \`/ci\`，开始跑 **语法/静态前端 + 浏览器功能冒烟**。跑完后 bot 会回写案例清单、结果与未覆盖项（Issue #55）。"
+            -f body="▶️ 审核人 @${{ github.event.comment.user.login }} 触发了 \`/ci\`，开始跑 **语法/静态前端 + 浏览器功能冒烟**。跑完后 bot 会回写案例清单、结果与未覆盖项（Issue #55 / #89）。"
 
   smoke:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head
+      - name: Checkout PR head（仅作页面代码来源）
         uses: actions/checkout@v4
         with:
           repository: ${{ needs.authorize.outputs.head_repo }}
           ref: ${{ needs.authorize.outputs.head_sha }}
+
+      - name: Checkout develop 的 ci/ 工具链
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: develop
+          sparse-checkout: |
+            ci
+          sparse-checkout-cone-mode: true
+          path: .ci-from-develop
+
+      - name: 用 develop 的 ci/ 覆盖工作区
+        run: |
+          set -euo pipefail
+          rm -rf ci
+          cp -a .ci-from-develop/ci ci
+          rm -rf .ci-from-develop
+          test -f ci/package-lock.json
+          test -f ci/report.mjs
+          test -f ci/smoke.spec.mjs
+          test -f ci/static-check.mjs
+          echo "已固定使用 develop 的 ci/ 工具链"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -112,7 +135,7 @@ jobs:
       - name: Install CI deps
         working-directory: ci
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: 语法与静态前端
@@ -140,6 +163,16 @@ jobs:
           node ci/report.mjs > comment.md
           REPORT_EXIT=$?
           set -e
+          if [ ! -s comment.md ]; then
+            printf '%s\n' \
+              '## ❌ Reviewer CI 报告' \
+              '' \
+              "报告生成失败（可能缺依赖或脚本异常）。请查看 [Actions 日志](${RUN_URL})。" \
+              '' \
+              "静态：${STATIC_STATUS} · Playwright：${PLAYWRIGHT_STATUS}" \
+              > comment.md
+            REPORT_EXIT=1
+          fi
           gh api \
             --method POST \
             "/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * 静态前端检查：HTML 骨架、CSS、main.js 语法、ESLint no-undef、无 CDN。
- * 按键分发是否正确交给 Playwright 点击冒烟（含运行期报错收集），此处不强制代码写法。
+ * 静态前端检查：HTML 骨架、CSS、main.js 语法、ESLint no-undef、无 CDN，
+ * 以及若干「能跑但易藏坑」的维护向约束（LAYOUT/KEY_CLASS/OPERATORS/危险 API）。
+ * 按键分发是否正确交给 Playwright 点击冒烟（含运行期报错收集），此处不强制 if/switch 写法。
  * 成功 exit 0，失败 exit 1。
  */
 import fs from 'node:fs';
@@ -12,12 +13,104 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const failures = [];
 
+/** LAYOUT 允许的 kind；未知 kind 在现分发里会掉进最终 else → 误走 = */
+const KNOWN_KINDS = new Set([
+  'digit',
+  'operator',
+  'equals',
+  'decimal',
+  'clear',
+  'backspace',
+  'clearEntry',
+  'sqrt',
+  'square',
+  'percent',
+  'plusMinus',
+  'reciprocal',
+  'pi',
+  'lparen',
+  'rparen',
+  'copy',
+  'mc',
+  'mr',
+  'mplus',
+  'mminus',
+  'trig',
+  'angleMode',
+]);
+
 function ok(msg) {
   console.log(`✅ ${msg}`);
 }
 function bad(msg) {
   console.log(`❌ ${msg}`);
   failures.push(msg);
+}
+
+/** 从 main.js 抽出 LAYOUT / KEY_CLASS / OPERATORS，做维护向一致性检查（不强制分发写法）。 */
+function checkMaintainability(js) {
+  const layoutMatch = js.match(/const LAYOUT\s*=\s*\[([\s\S]*?)\];/);
+  if (!layoutMatch) {
+    bad('未找到 const LAYOUT = [...]，无法做键位一致性检查');
+    return;
+  }
+  const pairs = [...layoutMatch[1].matchAll(/\[\s*'((?:\\'|[^'])*)'\s*,\s*'((?:\\'|[^'])*)'\s*\]/g)].map(
+    (m) => [m[1], m[2]],
+  );
+  if (pairs.length === 0) {
+    bad('LAYOUT 解析结果为空');
+    return;
+  }
+  ok(`LAYOUT 解析到 ${pairs.length} 个键位`);
+
+  const labels = pairs.map(([label]) => label);
+  const dup = labels.filter((l, i) => labels.indexOf(l) !== i);
+  if (dup.length) bad(`LAYOUT 标签重复：${[...new Set(dup)].join(', ')}`);
+  else ok('LAYOUT 标签无重复');
+
+  const kinds = [...new Set(pairs.map(([, kind]) => kind))];
+  const unknown = kinds.filter((k) => !KNOWN_KINDS.has(k));
+  if (unknown.length) {
+    bad(
+      `LAYOUT 出现未知 kind（会掉进最终 else 误走 =）：${unknown.join(', ')}；已知：${[...KNOWN_KINDS].join(', ')}`,
+    );
+  } else {
+    ok('LAYOUT kind 均在已知白名单内');
+  }
+
+  const keyClassMatch = js.match(/const KEY_CLASS\s*=\s*\{([\s\S]*?)\};/);
+  if (!keyClassMatch) {
+    bad('未找到 const KEY_CLASS = {...}');
+  } else {
+    const keyClassBody = keyClassMatch[1];
+    // 缺条目时 className 变成 `key undefined`，页面能跑但样式/语义都漂
+    const missingAll = kinds.filter((k) => !new RegExp(`\\b${k}\\s*:`).test(keyClassBody));
+    if (missingAll.length) bad(`KEY_CLASS 未覆盖 LAYOUT kind：${missingAll.join(', ')}`);
+    else ok('KEY_CLASS 覆盖全部 LAYOUT kind');
+  }
+
+  const opsMatch = js.match(/const OPERATORS\s*=\s*\{([\s\S]*?)\};/);
+  if (!opsMatch) {
+    bad('未找到 const OPERATORS = {...}');
+  } else {
+    const opLabels = pairs.filter(([, kind]) => kind === 'operator').map(([label]) => label);
+    const missingOps = opLabels.filter((label) => !opsMatch[1].includes(`'${label}'`));
+    if (missingOps.length) bad(`OPERATORS 缺少 operator 键面实现：${missingOps.join(', ')}`);
+    else ok(`OPERATORS 覆盖全部 operator 键（${opLabels.join(', ') || '无'}）`);
+  }
+
+  if (/\beval\s*\(|new\s+Function\s*\(/.test(js)) {
+    bad('js/main.js 出现 eval / new Function（隐藏执行风险，训练场禁止）');
+  } else {
+    ok('js/main.js 无 eval / new Function');
+  }
+
+  // 空 catch：catch (_) {} / catch (e) { } —— 吞错会让「能跑但坏了」更难发现
+  if (/catch\s*\([^)]*\)\s*\{\s*\}/.test(js)) {
+    bad('js/main.js 存在空 catch（吞错藏病）');
+  } else {
+    ok('js/main.js 无空 catch');
+  }
 }
 
 const htmlPath = path.join(root, 'index.html');
@@ -113,6 +206,7 @@ async function main() {
       ok('js/main.js 无 CDN 痕迹');
     }
 
+    checkMaintainability(js);
     await runEslintNoUndef();
   }
 

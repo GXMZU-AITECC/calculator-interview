@@ -83,6 +83,7 @@ test.describe('前端骨架与样式', () => {
     for (const label of [
       '+', '−', '×', '÷', '=', '.', 'C', 'CE', '⌫', '√', 'x²', '1/x', '复制',
       'MC', 'MR', 'M+', 'M−',
+      'π', '%', '±', '(', ')', 'sin', 'cos', 'tan', 'DEG', 'xʸ',
     ]) {
       await expect(key(page, label)).toHaveCount(1);
     }
@@ -194,20 +195,6 @@ test.describe('四则运算', () => {
       await expect(page.locator('#display-main')).toHaveText('3');
       await clickKey(page, '=');
       await expect(page.locator('#display-main')).toHaveText('5');
-    });
-  });
-
-  test('括号占位键：点击 ( / ) 不误触发 =', async ({ page }) => {
-    await withPageErrors(page, async () => {
-      await clickKey(page, '1');
-      await clickKey(page, '+');
-      await clickKey(page, '2');
-      await clickKey(page, '(');
-      await expect(page.locator('#display-main')).toHaveText('2');
-      await clickKey(page, ')');
-      await expect(page.locator('#display-main')).toHaveText('2');
-      await clickKey(page, '=');
-      await expect(page.locator('#display-main')).toHaveText('3');
     });
   });
 
@@ -382,9 +369,9 @@ test.describe('历史与复制', () => {
     await clickKey(page, '+');
     await clickKey(page, '3');
     await clickKey(page, '=');
-    await expect(page.locator('#history-list li')).toHaveCount(1);
-    await expect(page.locator('#history-list li').first()).toContainText('=');
-    await expect(page.locator('#history-list li').first()).toContainText('5');
+    await expect(page.locator('#history-list li.history-item')).toHaveCount(1);
+    await expect(page.locator('#history-list li.history-item').first()).toContainText('=');
+    await expect(page.locator('#history-list li.history-item').first()).toContainText('5');
   });
 
   test('连续两次等号累计两条历史', async ({ page }) => {
@@ -396,7 +383,34 @@ test.describe('历史与复制', () => {
     await clickKey(page, '+');
     await clickKey(page, '2');
     await clickKey(page, '=');
-    await expect(page.locator('#history-list li')).toHaveCount(2);
+    await expect(page.locator('#history-list li.history-item')).toHaveCount(2);
+  });
+
+  test('历史回填：点击条目把结果填回主屏', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '2');
+      await clickKey(page, '+');
+      await clickKey(page, '3');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('5');
+      await clickKey(page, 'C');
+      await expect(page.locator('#display-main')).toHaveText('0');
+      await page.locator('#history-list li.history-item').first().click();
+      await expect(page.locator('#display-main')).toHaveText('5');
+    });
+  });
+
+  test('历史清空：清空后无历史条目', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '1');
+      await clickKey(page, '=');
+      await expect(page.locator('#history-list li.history-item')).toHaveCount(1);
+      await page.getByRole('button', { name: '清空', exact: true }).click();
+      await expect(page.locator('#history-list li.history-item')).toHaveCount(0);
+      await expect(page.locator('#history-list li.history-empty')).toHaveCount(1);
+    });
   });
 
   test('复制：点击后副显示提示已复制，剪贴板为当前值', async ({ page, context }) => {
@@ -407,6 +421,174 @@ test.describe('历史与复制', () => {
     await expect(page.locator('#display-sub')).toHaveText('已复制');
     const text = await page.evaluate(() => navigator.clipboard.readText());
     expect(text).toBe('42');
+  });
+});
+
+test.describe('已合基线：π / % / ± / 括号 / 三角 / xʸ', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('π：点 π 显示圆周率近似；π + 1 = ', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, 'π');
+      const piText = String(Number(Math.PI.toPrecision(12)));
+      await expect(page.locator('#display-main')).toHaveText(piText);
+      await clickKey(page, '+');
+      await clickKey(page, '1');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText(
+        String(Number((Math.PI + 1).toPrecision(12))),
+      );
+    });
+  });
+
+  test('%：200 + 10 % = 得到 220（加减按左操作数百分比）', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '2');
+      await clickKey(page, '0');
+      await clickKey(page, '0');
+      await clickKey(page, '+');
+      await clickKey(page, '1');
+      await clickKey(page, '0');
+      await clickKey(page, '%');
+      await expect(page.locator('#display-main')).toHaveText('20');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('220');
+    });
+  });
+
+  test('%：单独 50 % 得到 0.5', async ({ page }) => {
+    await clickKey(page, '5');
+    await clickKey(page, '0');
+    await clickKey(page, '%');
+    await expect(page.locator('#display-main')).toHaveText('0.5');
+  });
+
+  test('±：5 → ± → -5 → ± → 5；0 保持 0', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '5');
+      await clickKey(page, '±');
+      await expect(page.locator('#display-main')).toHaveText('-5');
+      await clickKey(page, '±');
+      await expect(page.locator('#display-main')).toHaveText('5');
+      await clickKey(page, 'C');
+      await clickKey(page, '±');
+      await expect(page.locator('#display-main')).toHaveText('0');
+    });
+  });
+
+  test('括号：( 1 + 2 ) × 3 = 得到 9', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '(');
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '2');
+      await clickKey(page, ')');
+      await clickKey(page, '×');
+      await clickKey(page, '3');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('9');
+    });
+  });
+
+  test('括号：1 + ( 2 × 3 ) = 得到 7', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '(');
+      await clickKey(page, '2');
+      await clickKey(page, '×');
+      await clickKey(page, '3');
+      await clickKey(page, ')');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('7');
+    });
+  });
+
+  test('三角函数 DEG：sin 90 → 1；cos 0 → 1', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '9');
+      await clickKey(page, '0');
+      await clickKey(page, 'sin');
+      await expect(page.locator('#display-main')).toHaveText('1');
+      await clickKey(page, 'C');
+      await clickKey(page, '0');
+      await clickKey(page, 'cos');
+      await expect(page.locator('#display-main')).toHaveText('1');
+    });
+  });
+
+  test('角度模式：切 RAD 后 sin 90 不再是 1', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, 'DEG'); // 默认 DEG → 切到 RAD，键面变 RAD
+      await expect(key(page, 'RAD')).toHaveCount(1);
+      await clickKey(page, '9');
+      await clickKey(page, '0');
+      await clickKey(page, 'sin');
+      const shown = await page.locator('#display-main').innerText();
+      expect(shown).not.toBe('1');
+      expect(shown).not.toBe('错误');
+    });
+  });
+
+  test('xʸ：2 xʸ 3 = 得到 8；9 xʸ 0.5 = 得到 3', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '2');
+      await clickKey(page, 'xʸ');
+      await clickKey(page, '3');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('8');
+      await clickKey(page, 'C');
+      await clickKey(page, '9');
+      await clickKey(page, 'xʸ');
+      await clickKey(page, '.');
+      await clickKey(page, '5');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('3');
+    });
+  });
+});
+
+test.describe('健壮性：隐藏回归与错误恢复', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('错位 ( 被忽略：1 + 2 ( ) = 仍得 3，且无运行期报错', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '2');
+      await clickKey(page, '(');
+      await expect(page.locator('#display-main')).toHaveText('2');
+      await clickKey(page, ')');
+      await expect(page.locator('#display-main')).toHaveText('2');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('3');
+    });
+  });
+
+  test('未闭合括号直接 = 不崩： ( 1 + 2 = 得到 3', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '(');
+      await clickKey(page, '1');
+      await clickKey(page, '+');
+      await clickKey(page, '2');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('3');
+    });
+  });
+
+  test('tan 90（DEG）→ 错误；错误后按数字可恢复', async ({ page }) => {
+    await withPageErrors(page, async () => {
+      await clickKey(page, '9');
+      await clickKey(page, '0');
+      await clickKey(page, 'tan');
+      await expect(page.locator('#display-main')).toHaveText('错误');
+      await clickKey(page, '7');
+      await expect(page.locator('#display-main')).toHaveText('7');
+    });
   });
 });
 
