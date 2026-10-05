@@ -108,6 +108,7 @@ const OPERATORS = {
   '×': (a, b) => a * b,
   '÷': (a, b) => a / b,
  'xʸ': (a, b) => Math.pow(a, b), // 新增：任意次幂 xʸ
+    'mod': (a, b) => a % b, // 新增：取余 mod
  'ʸ√x': (a, b) => (a < 0 && b % 2 === 1) ? -Math.pow(-a, 1 / b) : Math.pow(a, 1 / b), // ← 新增：n 次方根，b 是根指数
 };  
 
@@ -593,6 +594,7 @@ const LAYOUT = [
   ['sin', 'trig'], ['cos', 'trig'], ['tan', 'trig'], // 三角函数键
   ['DEG', 'angleMode'], // 角度/弧度切换键：键面文字随当前模式变化
   ['xʸ', 'operator'], // 新增：任意次幂键
+    ['mod', 'operator'], // 新增：取余键
   ['±', 'plusMinus'], // #102 新增：正负切换键
   ['ʸ√x', 'operator'], // ← 新增：n 次方根键
 ];
