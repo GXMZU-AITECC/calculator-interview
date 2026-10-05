@@ -295,7 +295,22 @@ function inputReciprocal() {
 
   show();
 }
+/** 绝对值键：对当前显示的数求绝对值。 */
+function inputAbs() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+  const value = Number(text);
+  text = formatResult(Math.abs(value));
 
+  if (text === ERROR_TEXT) {
+    clearState();
+    showSub('');
+  }
+
+  show();
+}
 /** C 键：全部清零。 */
 function inputClear() {
   text = INITIAL;
@@ -369,12 +384,12 @@ const LAYOUT = [
   ['.', 'decimal'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
+  ['|x|', 'abs'],
   ['(', 'lparen'], [')', 'rparen'], // #43 新增：末行整行放左右括号
   ['复制', 'copy'],
   ['MC', 'mc'], ['MR', 'mr'], ['M+', 'mplus'], ['M−', 'mminus'],
   ['%', 'percent'], // #33 新增：百分号键
 ];
-
 const KEY_CLASS = {
   digit: 'key--normal',
   operator: 'key--action',
@@ -387,6 +402,7 @@ const KEY_CLASS = {
   square: 'key--action',
   percent: 'key--action',
   reciprocal: 'key--action',
+ abs: 'key--action', 
   lparen: 'key--action', // #43 新增
   rparen: 'key--action',
   copy: 'key--action',
@@ -415,10 +431,12 @@ LAYOUT.forEach(([label, kind]) => {
     } else if (kind === 'clearEntry') {
       inputClearEntry();
     } else if (kind === 'sqrt') {
-      inputSqrt();
+      inputSqrt();                      
     } else if (kind === 'square') {
       inputSquare();
-    } else if (kind === 'reciprocal') {
+    }else if (kind === 'abs') {
+  inputAbs();
+    }else if (kind === 'reciprocal') {
       inputReciprocal();
     } else if (kind === 'percent') {
       inputPercent();
@@ -580,3 +598,4 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+                                                                                                                
