@@ -545,6 +545,7 @@ function inputMemoryAdd() {
   }
   memory = memory + value;
   waiting = true;
+   updateMemoryIndicator();
 }
 
 /** 内存减：把当前显示的数从内存里减掉。 */
@@ -558,6 +559,7 @@ function inputMemorySubtract() {
   }
   memory = memory - value;
   waiting = true;
+   updateMemoryIndicator();
 }
 
 /** 内存读：把内存里的数取出来显示到主屏。 */
@@ -573,6 +575,7 @@ function inputMemoryRecall() {
 /** 内存清：把内存归零。 */
 function inputMemoryClear() {
   memory = 0;
+  updateMemoryIndicator();
 }
 
 // ---------------------------------------------------------------
@@ -819,3 +822,46 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
+// =========================================
+// 新增：内存状态指示器（内存有值时显示 M 标记）
+// 内存有非零值时在面板左上角显示「M」，为空时隐藏；悬停查看内存值。
+// 只新增代码：不动显示区 DOM、不改已有函数签名、不引依赖。
+// =========================================
+const memoryIndicator = document.createElement('span');
+memoryIndicator.className = 'memory-indicator';
+memoryIndicator.textContent = 'M';
+
+const memoryIndicatorStyle = document.createElement('style');
+memoryIndicatorStyle.textContent = [
+  'main.calculator { position: relative; }',
+  '.memory-indicator {',
+  '  display: none;',
+  '  position: absolute;',
+  '  top: 1px;',
+  '  left: 14px;',
+  '  width: 18px;',
+  '  height: 18px;',
+  '  line-height: 18px;',
+  '  border-radius: 5px;',
+  '  background: var(--key-action);',
+  '  color: #fff;',
+  '  font-size: 12px;',
+  '  font-weight: bold;',
+  '  text-align: center;',
+  '  cursor: default;',
+  '}',
+].join('\n');
+document.head.appendChild(memoryIndicatorStyle);
+
+function updateMemoryIndicator() {
+  const hasValue = memory !== 0;
+  memoryIndicator.style.display = hasValue ? 'block' : 'none';
+  memoryIndicator.title = hasValue ? `内存：${formatResult(memory)}` : '内存为空';
+}
+
+const memoryIndicatorHost = document.querySelector('main.calculator');
+if (memoryIndicatorHost) {
+  memoryIndicatorHost.appendChild(memoryIndicator);
+}
+
+updateMemoryIndicator();
