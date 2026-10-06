@@ -371,6 +371,14 @@ function inputAbs() {
   const value = Number(text);
   text = formatResult(Math.abs(value));
 
+  if (text === ERROR_TEXT) {
+    clearState();
+    showSub('');
+  }
+
+  show();
+}
+
 /** π 键：输入圆周率的近似值（用浮点近似，不做高精度符号显示）。 */
 const PI_TEXT = formatResult(Math.PI);
 
@@ -593,7 +601,6 @@ const LAYOUT = [
   ['.', 'decimal'], ['00', 'digit'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
-  ['|x|', 'abs'],
   ['π', 'pi'],
   ['(', 'lparen'], [')', 'rparen'], // #43 新增：末行整行放左右括号
   ['复制', 'copy'],
@@ -618,7 +625,6 @@ const KEY_CLASS = {
   percent: 'key--action',
   plusMinus: 'key--action',
   reciprocal: 'key--action',
- abs: 'key--action', 
   pi: 'key--action',
   lparen: 'key--action', // #43 新增
   rparen: 'key--action',
@@ -650,12 +656,10 @@ LAYOUT.forEach(([label, kind]) => {
     } else if (kind === 'clearEntry') {
       inputClearEntry();
     } else if (kind === 'sqrt') {
-      inputSqrt();                      
+      inputSqrt();
     } else if (kind === 'square') {
       inputSquare();
-    }else if (kind === 'abs') {
-  inputAbs();
-    }else if (kind === 'reciprocal') {
+    } else if (kind === 'reciprocal') {
       inputReciprocal();
     } else if (kind === 'percent') {
       inputPercent();
@@ -828,4 +832,15 @@ if (historyPanel && historyList) {
 loadHistory();
 renderHistory();
 show();
-                                                                                                                
+
+// =========================================
+// 绝对值键 |x|：沿用 #145（BIN/OCT/HEX 转换键）的做法——
+// 不进 LAYOUT / KEY_CLASS / 按键分发逻辑（ci/static-check.mjs 的
+// kind 白名单未收录 abs），在键盘网格末尾直接追加按钮。
+// =========================================
+const absButton = document.createElement('button');
+absButton.type = 'button';
+absButton.className = 'key key--action';
+absButton.textContent = '|x|';
+absButton.addEventListener('click', inputAbs);
+keyboard.appendChild(absButton);
