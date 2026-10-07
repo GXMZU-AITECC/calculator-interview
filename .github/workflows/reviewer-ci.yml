@@ -48,7 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.XWMS_PAT_TOKEN }}
           ACTOR: ${{ github.event.comment.user.login }}
-          FALLBACK: "isryanyhliu xwms MOLUOGH Return-leaf hongwei-2026"
+          FALLBACK: "isryanyhliu xwms MOLUOGH Return-leaf hongwei-2026 Pazburg MU-mu188 hzc1045-web jingdi0112 valacoynocecio475-prog"
         run: |
           set -euo pipefail
           ALLOWED=false
@@ -90,7 +90,7 @@ jobs:
           gh api \
             --method POST \
             "/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
-            -f body="▶️ 审核人 @${{ github.event.comment.user.login }} 触发了 \`/ci\`，开始跑 **语法/静态前端 + 浏览器功能冒烟**。跑完后 bot 会回写案例清单、结果与未覆盖项（Issue #55 / #89）。"
+            -f body="▶️ 审核人 @${{ github.event.comment.user.login }} 触发了 \`/ci\`，开始跑 **语法/静态维护网 + 前端样式 + 功能/健壮性冒烟**。跑完后 bot 会回写案例清单、结果与未覆盖项（Issue #187）。"
 
   smoke:
     needs: authorize

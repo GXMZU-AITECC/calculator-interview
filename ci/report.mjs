@@ -34,14 +34,14 @@ function stripAnsi(text) {
 
 /** 仍故意不锁、靠人工看的点 */
 const NOT_COVERED = [
-  '像素级视觉回归 / 响应式布局截图对比（只锁 CSS 生效与关键选择器存在）',
+  '像素级视觉回归 / 响应式布局截图对比（已锁按键 .key 背景色与主屏右对齐）',
   '超长数字精度与显示截断、科学计数法、字号自适应像素细节',
   '复制失败路径（无 clipboard API 时「复制失败」）',
   '历史条目完整文案格式与滚动交互细节（已锁回填/清空）',
   '无障碍（ARIA 完整性、键盘焦点环）',
-  '纯样式（圆角/动画/滚动条外观）',
-  'log10/pow10：函数可存在但无独立键位前不锁点击语义',
-  '候选人 PR 自拟、尚未合入 develop 的新功能（本 CI 只锁 develop 基线）',
+  '纯样式（圆角/动画/滚动条外观、主题品味）',
+  '音效听感 / AudioContext 浏览器差异',
+  '候选人 PR 自拟、尚未合入 develop 的新功能（存在才测的键除外，如 mod / 奇偶）',
   'T/CT/占题等人审条例（CI 不替代 CODEOWNERS）',
 ];
 
@@ -97,7 +97,9 @@ const overall =
 const lines = [];
 lines.push(overall === true ? '## ✅ Reviewer CI 报告' : overall === false ? '## ❌ Reviewer CI 报告' : '## ➖ Reviewer CI 报告');
 lines.push('');
-lines.push('覆盖范围：**语法 + ESLint no-undef + LAYOUT/KEY_CLASS/OPERATORS 维护向静态网 + 静态前端骨架/CSS + Playwright 基线点击/结果冒烟（含 π/%/±/括号/三角/xʸ/历史回填与健壮性、运行期报错）**（非像素级视觉全量）。');
+lines.push(
+  '覆盖范围：**语法 + ESLint no-undef + LAYOUT/KEY_CLASS/OPERATORS（含后置注册）+ 样式类落盘 + 禁 prompt/alert/confirm + 静态前端骨架/CSS + Playwright 基线（π/%/±/括号/三角/xʸ/历史回填）+ 前端按键样式/无弹窗 + 已合键抽查（mod/奇偶若存在）+ 健壮性与运行期报错**（非像素级视觉全量）。',
+);
 lines.push(`触发口令：\`/ci\` · 仅 \`@GXMZU-AITECC/reviewers\` 可启动`);
 if (runUrl) lines.push(`完整日志：[Actions run](${runUrl})`);
 lines.push('');

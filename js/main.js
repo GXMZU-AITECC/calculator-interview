@@ -18,6 +18,26 @@ function add(a, b) {
   // TODO: 整个计算器现在只会这一件事，而且还没实现——等着你的 PR
   return a + b;
 }
+
+/**
+ * 平方和：两个操作数各自的平方之和。
+ * @param {number} a 左操作数
+ * @param {number} b 右操作数
+ * @returns {number} a² + b²
+ */
+function squareSum(a, b) {
+  return a * a + b * b;
+}
+
+/**
+ * 平方差：左操作数的平方减去右操作数的平方。
+ * @param {number} a 左操作数
+ * @param {number} b 右操作数
+ * @returns {number} a² − b²
+ */
+function squareDiff(a, b) {
+  return a * a - b * b;
+}
 /**
  * 常用对数 log10
  * @param {number} x 输入数字
@@ -110,6 +130,8 @@ const OPERATORS = {
  'xʸ': (a, b) => Math.pow(a, b), // 新增：任意次幂 xʸ
   'mod': (a, b) => a % b, // 新增：取余 mod
  'ʸ√x': (a, b) => (a < 0 && b % 2 === 1) ? -Math.pow(-a, 1 / b) : Math.pow(a, 1 / b), // ← 新增：n 次方根，b 是根指数
+  'a²+b²': squareSum, // #151 新增：平方和键
+  'a²−b²': squareDiff, // #151 新增：平方差键
 };  
 
 
@@ -294,6 +316,25 @@ function inputSqrt() {
   }
 
   text = formatResult(Math.sqrt(value));
+  show();
+}
+
+/** 四舍五入键：把当前显示的数取整。 */
+function inputRound() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+
+  const value = Number(text);
+  const result = Math.sign(value) * Math.round(Math.abs(value));
+  text = formatResult(result);
+
+  if (text === ERROR_TEXT) {
+    clearState();
+    showSub('');
+  }
+
   show();
 }
 
@@ -660,7 +701,7 @@ const LAYOUT = [
   ['4', 'digit'], ['5', 'digit'], ['6', 'digit'], ['÷', 'operator'],
   ['1', 'digit'], ['2', 'digit'], ['3', 'digit'], ['×', 'operator'],
   ['0', 'digit'], ['−', 'operator'], ['+', 'operator'], ['=', 'equals'],
-  ['.', 'decimal'], ['00', 'digit'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'],
+  ['.', 'decimal'], ['00', 'digit'], ['⌫', 'backspace'], ['CE', 'clearEntry'], ['√', 'sqrt'], ['四舍五入', 'sqrt'],
   ['x²', 'square'],
   ['1/x', 'reciprocal'],
   ['π', 'pi'],
@@ -676,6 +717,8 @@ const LAYOUT = [
   ['mod', 'operator'], // 新增：取余键
   ['±', 'plusMinus'], // #102 新增：正负切换键
   ['ʸ√x', 'operator'], // ← 新增：n 次方根键
+  ['a²+b²', 'operator'], // #151 新增：平方和键（标签沿用本仓 x² / xʸ / ʸ√x 的记号风格，4 列网格里中文标签会换行）
+  ['a²−b²', 'operator'], // #151 新增：平方差键
 ];
 
 const KEY_CLASS = {
@@ -707,6 +750,9 @@ LAYOUT.forEach(([label, kind]) => {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `key ${KEY_CLASS[kind]}`;
+  if (label === '四舍五入') {
+    button.classList.add('key--round');
+  }
   button.textContent = label;
   button.addEventListener('click', () => {
     if (kind === 'trig' && HYPERBOLIC_FNS.has(label)) { // #143 新增：双曲函数键转交独立处理
@@ -727,7 +773,11 @@ LAYOUT.forEach(([label, kind]) => {
     } else if (kind === 'clearEntry') {
       inputClearEntry();
     } else if (kind === 'sqrt') {
-      inputSqrt();
+      if (label === '四舍五入') {
+        inputRound();
+      } else {
+        inputSqrt();
+      }
     } else if (kind === 'square') {
       inputSquare();
     } else if (kind === 'reciprocal') {
@@ -1217,6 +1267,7 @@ function inputOddEven(){
   // 判断是否为整数
   if (!Number.isInteger(num)) {
     text = "仅支持整数";
+    waiting = true; // 下一次数字输入覆盖主屏，避免「仅支持整数5」
     showSub('');
     show();
     return;
@@ -1227,6 +1278,7 @@ function inputOddEven(){
   } else {
     text = '奇数';
   }
+  waiting = true; // 下一次数字输入覆盖主屏，避免「奇数5」
   showSub('');
   show();
 }
@@ -1239,6 +1291,46 @@ oddEvenBtn.textContent = '奇 / 偶';
 oddEvenBtn.addEventListener('click', inputOddEven);
 keyboard.appendChild(oddEvenBtn);
 
+/**
+ * 阶乘 n! 按钮点击处理（#194）
+ * 对主屏上当前的非负整数计算阶乘；小数、负数置错误
+ * 依赖：formatResult / show / isError / canRepeat
+ * @input 主屏text显示的当前数值
+ */
+function inputFactorial() {
+  // 如果计算器当前已经处于错误状态，直接返回不处理
+  if (isError()) {
+    return;
+  }
+  // 执行一元运算之后禁止继续连等重复运算
+  canRepeat = false;
+  const value = Number(text);
+
+  // 阶乘只允许非负整数；负数或者小数返回错误
+  if (!Number.isInteger(value) || value < 0) {
+    text = formatResult(NaN);
+    show();
+    return;
+  }
+
+  // 循环求阶乘，0! = 1
+  let res = 1;
+  for (let i = 2; i <= value; i++) {
+    res *= i;
+  }
+
+  // 回写主屏并且刷新显示
+  text = formatResult(res);
+  show();
+}
+
+// 渲染【n!】阶乘按钮，追加到屏幕键盘
+const factorialBtn = document.createElement('button');
+factorialBtn.type = 'button';
+factorialBtn.className = 'key key--action';
+factorialBtn.textContent = 'n!';
+factorialBtn.addEventListener('click', inputFactorial);
+keyboard.appendChild(factorialBtn);
 
 // =========================================
 // 新增：度 / 分 / 秒（° ′ ″）三个按键 —— 纯叠加，既有逻辑零改动
@@ -2105,3 +2197,78 @@ document.addEventListener(
   },
   true,
 );
+// =========================================
+// 新增：排列组合键 nPr / nCr
+// 排列数 A(n,k) = n!/(n−k)!，组合数 C(n,k) = n!/(k!(n−k)!)。
+// 做成与 + − × ÷ 同构的二元运算符：输入 n → 按 nPr / nCr → 输入 k → 按 =。
+// 复用既有 OPERATORS + applyPending 状态机，因此副屏表达式、C / CE、括号、
+// 连按 = 这些既有行为都自动生效，不另起一套状态。
+// 大阶乘一律用连乘 / 乘一项除一项的算法，不直接算 n!，避免 21! 以上溢出。
+// 本段为纯叠加新增：未改动上方任何既有代码、显示区 DOM 结构与既有函数签名。
+// =========================================
+
+/** 排列组合的合法输入：n、k 均为非负整数，且 k ≤ n。 */
+function isValidArity(n, k) {
+  return Number.isInteger(n) && Number.isInteger(k) && n >= 0 && k >= 0 && k <= n;
+}
+
+/**
+ * 排列数 A(n,k) = n × (n−1) × … × (n−k+1)。
+ * 只做 k 次连乘，不做 n!/(n−k)!，因此中间值不会因大阶乘溢出。
+ * @param {number} n 元素总数
+ * @param {number} k 取出个数
+ * @returns {number} 排列数
+ */
+function permutationCount(n, k) {
+  let result = 1;
+  for (let i = 0; i < k; i += 1) {
+    result *= n - i;
+  }
+  return result;
+}
+
+/**
+ * 组合数 C(n,k)，按「先乘一项、再除一项」逐步收敛：
+ * 第 i 步 = 前一步 × (n−k+i) ÷ i，每一步的中间值都是整数，
+ * 既不会溢出，也不会像先算 n! 那样丢精度。
+ * @param {number} n 元素总数
+ * @param {number} k 取出个数
+ * @returns {number} 组合数
+ */
+function combinationCount(n, k) {
+  let result = 1;
+  for (let i = 1; i <= k; i += 1) {
+    result = (result * (n - k + i)) / i;
+  }
+  return result;
+}
+
+/**
+ * 结果收敛：只放行安全整数范围内的整数值，
+ * 溢出或超过 2^53 精度上限时返回 NaN，交给既有 formatResult 显示「错误」，
+ * 宁可不给结果，也不显示一串已经不准的数字。
+ */
+function toSafeCount(value) {
+  return Number.isSafeInteger(value) ? value : NaN;
+}
+
+// 注册进既有运算符表：与 xʸ / mod / ʸ√x 同类，都是加一行即可
+OPERATORS['nPr'] = (n, k) => (isValidArity(n, k) ? toSafeCount(permutationCount(n, k)) : NaN);
+OPERATORS['nCr'] = (n, k) => (isValidArity(n, k) ? toSafeCount(combinationCount(n, k)) : NaN);
+
+// 按键：沿用现有 .key .key--action 样式直接追加到键盘网格末尾（CT1：显示区之外可加按钮），
+// 不往 LAYOUT / KEY_CLASS 里加新 kind，避免动到既有按键分发逻辑
+const PERMUTATION_KEYS = [
+  ['nPr', 'nPr', '排列数 A(n,k) = n!/(n−k)!'],
+  ['nCr', 'nCr', '组合数 C(n,k) = n!/(k!(n−k)!)'],
+];
+
+PERMUTATION_KEYS.forEach(([label, op, hint]) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'key key--action';
+  button.textContent = label;
+  button.title = hint;
+  button.addEventListener('click', () => inputOperator(op));
+  keyboard.appendChild(button);
+});

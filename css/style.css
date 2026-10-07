@@ -115,6 +115,7 @@ body {
 .key--danger  { background: var(--key-danger); }   /* CLEAR 键 */
 .key--success { background: var(--key-success); }  /* 等号键 */
 .key--backspace { background: var(--key-backspace); }  /* 新增退格键样式类 */
+.key--round { font-size: 16px; white-space: nowrap; }
 
 .key--wide { grid-column: span 2; }  /* 占两列（如 0 键，对应 Python 版 colspan=2） */
 /* =========================================
