@@ -18,28 +18,25 @@ function add(a, b) {
   // TODO: 整个计算器现在只会这一件事，而且还没实现——等着你的 PR
   return a + b;
 }
+
 /**
- * 取模：求 a 除以 b 的余数
- * @param {number} a
- * @param {number} b
- * @returns {number} 余数
+ * 平方和：两个操作数各自的平方之和。
+ * @param {number} a 左操作数
+ * @param {number} b 右操作数
+ * @returns {number} a² + b²
  */
-function mod(a, b) {
-  const numA = Number(a);
-  const numB = Number(b);
-  if (isNaN(numA) || isNaN(numB)) return NaN;
-  return numA % numB;
+function squareSum(a, b) {
+  return a * a + b * b;
 }
 
 /**
- * 平方根：求 a 的算术平方根
- * @param {number} a
- * @returns {number} 平方根
+ * 平方差：左操作数的平方减去右操作数的平方。
+ * @param {number} a 左操作数
+ * @param {number} b 右操作数
+ * @returns {number} a² − b²
  */
-function sqrt(a) {
-  const num = Number(a);
-  if (isNaN(num) || num < 0) return NaN;
-  return Math.sqrt(num);
+function squareDiff(a, b) {
+  return a * a - b * b;
 }
 /**
  * 常用对数 log10
@@ -63,6 +60,29 @@ function pow10(x) {
   const res = Math.pow(10, x);
   return Number(res.toPrecision(10));
 }
+
+/**
+  * 取模：求 a 除以 b 的余数
+  * @param {number} a
+  * @param {number} b
+  * @returns {number} 余数
+  */
+ function mod(a, b) {
+   const numA = Number(a);
+   const numB = Number(b);
+   if (isNaN(numA) || isNaN(numB)) return NaN;
+   return numA % numB;
+ }
+ /**
+  * 平方根：求 a 的算术平方根
+  * @param {number} a
+  * @returns {number} 平方根
+  */
+ function sqrt(a) {
+   const num = Number(a);
+   if (isNaN(num) || num < 0) return NaN;
+   return Math.sqrt(num);
+ }
 
 
 // ---------------------------------------------------------------
@@ -133,6 +153,8 @@ const OPERATORS = {
  'xʸ': (a, b) => Math.pow(a, b), // 新增：任意次幂 xʸ
   'mod': (a, b) => a % b, // 新增：取余 mod
  'ʸ√x': (a, b) => (a < 0 && b % 2 === 1) ? -Math.pow(-a, 1 / b) : Math.pow(a, 1 / b), // ← 新增：n 次方根，b 是根指数
+  'a²+b²': squareSum, // #151 新增：平方和键
+  'a²−b²': squareDiff, // #151 新增：平方差键
 };  
 
 
@@ -378,6 +400,23 @@ function inputReciprocal() {
 
   const value = Number(text);
   text = formatResult(1 / value);
+
+  if (text === ERROR_TEXT) {
+    clearState();
+    showSub('');
+  }
+
+  show();
+}
+
+/** 绝对值键：对当前显示的数求绝对值。 */
+function inputAbs() {
+  if (isError()) {
+    return;
+  }
+  canRepeat = false; // 一元运算改变了当前数，连算资格作废
+  const value = Number(text);
+  text = formatResult(Math.abs(value));
 
   if (text === ERROR_TEXT) {
     clearState();
@@ -682,6 +721,8 @@ const LAYOUT = [
   ['mod', 'operator'], // 新增：取余键
   ['±', 'plusMinus'], // #102 新增：正负切换键
   ['ʸ√x', 'operator'], // ← 新增：n 次方根键
+  ['a²+b²', 'operator'], // #151 新增：平方和键（标签沿用本仓 x² / xʸ / ʸ√x 的记号风格，4 列网格里中文标签会换行）
+  ['a²−b²', 'operator'], // #151 新增：平方差键
 ];
 
 const KEY_CLASS = {
@@ -816,6 +857,10 @@ let history = [];
 function isHistoryItem(item) {
   return Boolean(item) && typeof item.line === 'string' && typeof item.result === 'string';
 }
+/** 取某条的重复次数；count 缺失或被写坏时兜底为 1，避免渲染出 NaN。 */
+function historyCount(item) {
+  return item.count > 0 ? item.count : 1;
+}
 
 /** 启动时读取历史；读不出来（无痕模式 / 数据损坏）就当没有。 */
 function loadHistory() {
@@ -836,9 +881,15 @@ function saveHistory() {
   }
 }
 
-/** 求值成功后记一条并刷新面板。 */
+/** 求值成功后记一条并刷新面板；与上一条算式相同则折叠为计数 +1，不新增条目。 */
 function recordHistory(line, result) {
-  history.unshift({ line, result });
+  const latest = history[0];
+  // 只跟「最近一条」比：连续重复才折叠。中间隔了别的算式就照常各记一条。
+  if (latest && latest.line === line && latest.result === result) {
+    latest.count = historyCount(latest) + 1;
+  } else {
+    history.unshift({ line, result, count: 1 });
+  }
   if (history.length > HISTORY_MAX) {
     history.length = HISTORY_MAX;
   }
@@ -882,7 +933,19 @@ function renderHistory() {
   history.forEach((item) => {
     const li = document.createElement('li');
     li.className = 'history-item';
+
+    // 算式和结果先作为条目文本（和原来一样），重复次数再挂成徽标
     li.textContent = `${item.line} ${item.result}`;
+
+    const times = historyCount(item);
+    if (times > 1) {
+      const badge = document.createElement('span');
+      badge.className = 'history-item__count';
+      badge.textContent = `×${times}`;
+      badge.title = `连续重复 ${times} 次`;
+      li.appendChild(badge);
+    }
+
     li.title = '点击把结果填回主屏';
     li.addEventListener('click', () => refillFromHistory(item));
     historyList.appendChild(li);
@@ -1143,26 +1206,571 @@ cubeButton.textContent = 'x³';
 cubeButton.addEventListener('click', inputCube);
 keyboard.appendChild(cubeButton);
 
+const absButton = document.createElement('button');
+absButton.type = 'button';
+absButton.className = 'key key--action';
+absButton.textContent = '|x|';
+absButton.addEventListener('click', inputAbs);
+keyboard.appendChild(absButton);
+// =================================================================
+// 新增：随机数键 Rand（纯追加，不改动上方任何既有代码）
+//
+// 按下后生成一个落在 [0, 1) 区间的随机数写进主显示区，
+// 之后它可以像普通数字一样继续参与四则运算。
+// 不动显示区 DOM、不改既有函数签名、不引第三方依赖。
+// =================================================================
+
+// 先放大成整数再缩小回去，这么做有两个好处：
+// 1) 结果最多 12 位小数，不会出现浮点长尾（比如 0.30000000000000004）；
+// 2) 上界被锁死在 0.999999999999，杜绝了「舍入后显示成 1」的极端情况。
+const RAND_SCALE = 1e12;
+
+/** 取一个 [0, 1) 区间内的随机数，最多 12 位小数。 */
+function randomUnit() {
+  return Math.floor(Math.random() * RAND_SCALE) / RAND_SCALE;
+}
+
+/** Rand 键：把随机数写入主显示区，行为与 π 键保持一致。 */
+function inputRandom() {
+  if (isError()) {
+    text = INITIAL; // 从错误态恢复时先回到初始显示，避免把「错误」这个值传下去
+  }
+
+  canRepeat = false; // 随机数是一次一元运算的结果，旧的连算资格作废
+  text = formatResult(randomUnit());
+  waiting = true; // 与 π 键一致：随机数是一个完整结果，下一个数字另起一轮
+  show();
+}
+
+// 在键盘末尾追加 Rand 键：沿用现有 .key .key--action 样式，
+// 不动 LAYOUT / KEY_CLASS / OPERATORS，也不碰既有按键的分发逻辑。
+const randomButton = document.createElement('button');
+randomButton.type = 'button';
+randomButton.className = 'key key--action';
+randomButton.textContent = 'Rand';
+randomButton.addEventListener('click', inputRandom);
+keyboard.appendChild(randomButton);
 /**
- * 取模：求 a 除以 b 的余数
- * @param {number} a
- * @param {number} b
- * @returns {number} 余数
+ * 奇/偶 判断按键
+ * 读取主屏当前数字，判断奇数/偶数
  */
-function mod(a, b) {
-  const numA = Number(a);
-  const numB = Number(b);
-  if (isNaN(numA) || isNaN(numB)) return NaN;
-  return numA % numB;
+function inputOddEven(){
+  if (isError()) {
+    return;
+  }
+  canRepeat = false;
+
+  const num = Number(text);
+  // 判断是否为整数
+  if (!Number.isInteger(num)) {
+    text = "仅支持整数";
+    showSub('');
+    show();
+    return;
+  }
+
+  if (num % 2 === 0) {
+    text = '偶数';
+  } else {
+    text = '奇数';
+  }
+  showSub('');
+  show();
+}
+
+// 渲染【奇 / 偶】按钮，追加到键盘
+const oddEvenBtn = document.createElement('button');
+oddEvenBtn.type = 'button';
+oddEvenBtn.className = 'key key--action';
+oddEvenBtn.textContent = '奇 / 偶';
+oddEvenBtn.addEventListener('click', inputOddEven);
+keyboard.appendChild(oddEvenBtn);
+
+
+// =========================================
+// 新增：度 / 分 / 秒（° ′ ″）三个按键 —— 纯叠加，既有逻辑零改动
+// -----------------------------------------------------------------
+// 用法：数字 + ° 记度、+ ′ 记分、+ ″ 记秒并结束录入；漏录的分量按 0，
+//       空值直接点键也不报错。点 ″ 时若已有待运算符（+ − × ÷ …），就复用
+//       既有 inputEquals() 求值，结果按「度/分/秒各两位小数」显示；没有
+//       待运算符，该值直接作为当前操作数继续参与既有四则运算。
+// 兼容：主屏显示度分秒串期间，捕获阶段先把它还原成等值十进制再放行，
+//       冒泡阶段再决定要不要把写法还回去——既有函数永远只见到纯数字。
+// 依赖：formatResult / INITIAL / ERROR_TEXT / show / showSub / inputEquals
+//       / keyboard / text / acc / pendingOp / waiting / canRepeat
+// =========================================
+
+/** 度分秒串的形状：如 -40.00°51.00′0.00″（三个分量各两位小数） */
+const DMS_TEXT = /^(-)?(\d+(?:\.\d+)?)°(\d+(?:\.\d+)?)′(\d+(?:\.\d+)?)″$/;
+
+/**
+ * 十进制度 → 度分秒串；秒四舍五入到两位后若满 60，进位依次向分、度传递。
+ * @param {number} value 十进制度数
+ * @returns {string} 如 30.00°20.00′10.00″；非有限数返回「错误」
+ */
+function formatDms(value) {
+  if (!Number.isFinite(value)) {
+    return ERROR_TEXT;
+  }
+  const abs = Math.abs(value);
+  let deg = Math.floor(abs);
+  const rest = (abs - deg) * 60;
+  let min = Math.floor(rest);
+  let sec = Math.round((rest - min) * 6000) / 100;
+  if (sec >= 60) {
+    sec -= 60;
+    min += 1;
+  }
+  if (min >= 60) {
+    min -= 60;
+    deg += 1;
+  }
+  return `${value < 0 ? '-' : ''}${deg.toFixed(2)}°${min.toFixed(2)}′${sec.toFixed(2)}″`;
 }
 
 /**
- * 平方根：求 a 的算术平方根
- * @param {number} a
- * @returns {number} 平方根
+ * 度分秒串 → 十进制度。
+ * @param {string} str 形如 30.00°20.00′10.00″ 的文本
+ * @returns {number|null} 十进制度；不是度分秒串返回 null
  */
-function sqrt(a) {
-  const num = Number(a);
-  if (isNaN(num) || num < 0) return NaN;
-  return Math.sqrt(num);
+function parseDms(str) {
+  const m = DMS_TEXT.exec(String(str));
+  if (!m) {
+    return null;
+  }
+  return (m[1] === '-' ? -1 : 1) * (Number(m[2]) + Number(m[3]) / 60 + Number(m[4]) / 3600);
 }
+
+/** 主屏此刻显示的是不是度分秒串 */
+function isDmsDisplay() {
+  return DMS_TEXT.test(text);
+}
+
+// ---------------------------------------------------------------
+// 录入状态
+// ---------------------------------------------------------------
+let dmsParts = { deg: 0, min: 0, sec: 0 }; // 已录入的分量
+let dmsBuilding = false;   // 是否正在录入一个度分秒操作数
+let dmsNext = 'min';       // 主屏上还没标记的那个数是分还是秒
+let dmsSawPreview = false; // 本次按键消费掉的是「尚未输入」的预览串
+
+let dmsInvolved = false;   // 当前算式出现过度分秒 → 结果与算式行用度分秒写法
+let dmsRestoreText = null; // 按键前主屏原本显示的度分秒串
+let dmsPre = null;         // 按键前的 { acc, op, operand }，用于改写 = 的算式行
+
+/** 副屏里左操作数的写法：算式中出现过度分秒就用度分秒串，否则用十进制 */
+function dmsSide(value) {
+  if (!dmsInvolved || !Number.isFinite(value)) {
+    return formatResult(value);
+  }
+  const shown = formatDms(value);
+  return shown === ERROR_TEXT ? formatResult(value) : shown;
+}
+
+/** 算式行里「右操作数」的写法：度分秒串先归一化（进位、各分量两位小数）；
+ *  普通小数保持十进制，不会因为算式里出现过度分秒就被强行换算
+ *  （如 10°30′0″ − 0.5 里的 0.5 就该还是 0.5） */
+function dmsOperandText(value) {
+  if (typeof value === 'string' && DMS_TEXT.test(value)) {
+    return formatDms(parseDms(value)); // 与副屏其余部分同一套写法
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? formatResult(n) : String(value);
+}
+
+/** 录入中途副屏的写法：按已录分量归一化后，去掉还没录的尾部分量。
+ *  因为先过了一遍 formatDms，90′ 这种越界分量会正常进位（0°90′ → 1°30′），
+ *  不会和主屏显示的预览打架。
+ *  @param {number} value 当前已录分量折算的十进制度
+ *  @param {'deg'|'min'|'sec'} level 这一轮录到哪个分量 */
+function dmsStageText(value, level) {
+  const full = formatDms(value);
+  const m = DMS_TEXT.exec(full);
+  if (!m) {
+    return full;
+  }
+  const sign = m[1] || '';
+  if (level === 'deg') {
+    return `${sign}${m[2]}°`;
+  }
+  if (level === 'min') {
+    return `${sign}${m[2]}°${m[3]}′`;
+  }
+  return full;
+}
+
+/** 录入期间副屏的前缀：有待运算符时保留「a + 」上下文 */
+function dmsPrefix() {
+  return pendingOp === null ? '' : `${dmsSide(acc)} ${pendingOp} `;
+}
+
+/** 把主屏预览成已录分量（未录的分量按 0）；下一个数字会整体替换它 */
+function dmsPreview(decimal) {
+  text = formatDms(decimal);
+  waiting = true;
+  show();
+}
+
+/** 本次要记的分量：预览串还没被新数字覆盖就按 0 记 */
+function dmsTake() {
+  const value = dmsSawPreview ? 0 : Number(text);
+  return Number.isFinite(value) ? value : 0;
+}
+
+/** 放弃未完成的录入：已录分量（含主屏上还没标记的数）折算成十进制写回主屏 */
+function dmsAbandon() {
+  const extra = Number.isFinite(Number(text)) ? Number(text) : 0;
+  const decimal = dmsNext === 'sec'
+    ? dmsParts.deg + dmsParts.min / 60 + extra / 3600
+    : dmsParts.deg + extra / 60;
+  dmsBuilding = false;
+  text = formatResult(decimal);
+  show();
+}
+
+/** 三个键的公共前置：错误态忽略；主屏是度分秒串就先还原成十进制 */
+function dmsPrepare() {
+  if (isError()) {
+    return false;
+  }
+  // 只有在「新开一份录入」时才重记本轮算式的原始写法。度分秒串刚录到一半时
+  // 主屏还是预览串，此刻不该覆盖已有的右操作数写法，否则 15°40′50″ 会被记成
+  // 半截的 50，副屏算式行就拼不出度分秒样式了。
+  if (!dmsBuilding) {
+    dmsPre = { acc, op: pendingOp, operand: text };
+  }
+  canRepeat = false;      // 开始度分秒录入，连算资格作废
+  dmsInvolved = true;     // 本次算式出现了度分秒操作数
+  dmsSawPreview = false;
+  if (isDmsDisplay()) {
+    text = formatResult(parseDms(text));
+    waiting = false;
+    dmsSawPreview = dmsBuilding; // 录入中被还原的是预览 → 这一分量还没输入
+    show();
+  }
+  return true;
+}
+
+/** 度键：把当前数字记为「度」，重开一份录入 */
+function inputDmsDegree() {
+  if (!dmsPrepare()) {
+    return;
+  }
+  dmsBuilding = true;
+  dmsNext = 'min';
+  dmsParts = { deg: dmsTake(), min: 0, sec: 0 };
+  showSub(`${dmsPrefix()}${dmsStageText(dmsParts.deg, 'deg')}`);
+  dmsPreview(dmsParts.deg);
+}
+
+/** 分键：把当前数字记为「分」；还没记过度就先把度按 0 算 */
+function inputDmsMinute() {
+  if (!dmsPrepare()) {
+    return;
+  }
+  if (!dmsBuilding) {
+    dmsBuilding = true;
+    dmsParts = { deg: 0, min: 0, sec: 0 };
+  }
+  dmsParts.min = dmsTake();
+  dmsNext = 'sec';
+  const partial = dmsParts.deg + dmsParts.min / 60;
+  showSub(`${dmsPrefix()}${dmsStageText(partial, 'min')}`);
+  dmsPreview(partial);
+}
+
+/** 秒键：把当前数字记为「秒」并结束本次录入 */
+function inputDmsSecond() {
+  if (!dmsPrepare()) {
+    return;
+  }
+  if (!dmsBuilding) {
+    dmsBuilding = true;
+    dmsParts = { deg: 0, min: 0, sec: 0 };
+  }
+  dmsParts.sec = dmsTake();
+
+  // 归一化后再上副屏：90″ 这类越界分量在此进位成 1′30″，与主屏、算式行口径一致
+  const decimal = dmsParts.deg + dmsParts.min / 60 + dmsParts.sec / 3600;
+  const entered = formatDms(decimal);
+  dmsBuilding = false;
+
+  if (pendingOp === null) {
+    // 没有待运算：整值作为当前操作数，等运算符继续算
+    showSub(entered);
+    dmsPreview(decimal);
+    return;
+  }
+
+  // 有待运算：走既有 = 的流程（算式行、历史记录、错误态全部沿用）
+  const line = `${dmsSide(acc)} ${pendingOp} ${entered} =`; // 两侧都用归一化写法
+  text = formatResult(decimal); // 右操作数先写回主屏，供 inputEquals 消费
+  inputEquals();
+  if (isError()) {
+    return; // 如除以 0°0′0″：保持既有「错误」态
+  }
+  canRepeat = false; // 已由 ″ 收尾，再按一次 = 不该重复累加第二个操作数
+  showSub(line);
+  dmsPreview(Number(text));
+}
+
+// ---------------------------------------------------------------
+// 与既有按键的兼容层：捕获阶段还原，冒泡阶段收尾
+// ---------------------------------------------------------------
+const DMS_EDIT_LABELS = ['.', '±', '⌫', '00']; // 编辑类键面（单个数字另行判断）
+const DMS_PHYS_KEYS = ['+', '-', '*', '/', 'Enter', '=', 'Escape', 'c', 'C'];
+const dmsButtons = [];
+
+/** 按键处理前：先快照状态，主屏是度分秒串就还原（录入中也把已录分量折算进来） */
+function dmsBefore(isEditKey) {
+  if (isEditKey && dmsBuilding) {
+    return; // 录入过程中的数字 / 小数点 / ± / 退格：直接作用于当前分量
+  }
+  // 只有「新的一轮按键」才重开快照；度分秒按键自身（dmsPrepare 里）已经记好了
+  // 本轮的原始左值/右值写法，这里不能覆盖，否则会把 15°40′50″ 记成 15.68…
+  if (!dmsBuilding) {
+    dmsPre = { acc, op: pendingOp, operand: text };
+  }
+  if (dmsBuilding) {
+    dmsAbandon();
+    if (dmsPre) {
+      dmsPre.operand = text; // 录入中断：用折算后的十进制，避免算式行里出现半截度分秒串
+    }
+  } else if (isDmsDisplay()) {
+    dmsRestoreText = text;
+    text = formatResult(parseDms(text));
+    show();
+  }
+}
+
+/** 按键既定处理跑完之后：值没动就把写法还回去，= 求值的结果转成度分秒 */
+function dmsAfter(label) {
+  if (label === 'C' || label === 'CE') {
+    dmsInvolved = false; // 本次算式到此为止
+  }
+  const snapshot = dmsRestoreText;
+  dmsRestoreText = null;
+  if (isError() || isDmsDisplay()) {
+    return; // 错误态或已经是度分秒串，无需收尾
+  }
+
+  // 值没被这次按键改动（如多按一次 = ，或按 + 只是把当前值挂成左操作数）：
+  // 把度分秒写法原样还回去，避免界面在「串 ↔ 小数」之间来回跳
+  const before = snapshot === null ? null : parseDms(snapshot);
+  if (before !== null && text === formatResult(before)) {
+    text = snapshot;
+    if (pendingOp !== null) {
+      showSub(`${snapshot} ${pendingOp}`);
+    }
+    show();
+    return;
+  }
+
+  // = 求值：算式里出现过度分秒，结果也按度分秒显示（各分量两位小数），
+  // 并把算式行改写成同一套写法；收尾后结束连算，再按 = 不会重复累加
+  if (label === '=' && dmsInvolved && Number.isFinite(Number(text))) {
+    text = formatDms(Number(text));
+    if (dmsPre && dmsPre.op !== null) {
+      showSub(`${dmsSide(dmsPre.acc)} ${dmsPre.op} ${dmsOperandText(dmsPre.operand)} =`);
+    }
+    canRepeat = false;
+    show();
+  }
+}
+
+// -----------------------------------------------------------------
+// 历史记录保持既有行为：仍记十进制算式行。
+// 改它需要从外部包装 recordHistory，属于改动既有函数的调用结果，
+// 为避免触碰「不动既有函数」的边界，这里不做——主屏与副屏的口径已经统一。
+// -----------------------------------------------------------------
+
+keyboard.addEventListener('click', (event) => {
+  const btn = event.target && event.target.closest ? event.target.closest('button') : null;
+  if (!btn || dmsButtons.indexOf(btn) !== -1) {
+    return; // 不在按钮上，或是度/分/秒键本身（由各自 handler 处理）
+  }
+  const label = btn.textContent;
+  dmsBefore(/^\d$/.test(label) || DMS_EDIT_LABELS.indexOf(label) !== -1);
+}, true);
+
+keyboard.addEventListener('click', (event) => {
+  const btn = event.target && event.target.closest ? event.target.closest('button') : null;
+  if (!btn || dmsButtons.indexOf(btn) !== -1) {
+    return;
+  }
+  dmsAfter(btn.textContent);
+});
+
+document.addEventListener('keydown', (event) => {
+  const key = event.key;
+  if (DMS_PHYS_KEYS.indexOf(key) === -1) {
+    return; // 既有监听根本不处理的键，不多管闲事
+  }
+  dmsBefore(key === '.' || key === 'Backspace' || (key >= '0' && key <= '9'));
+}, true);
+
+document.addEventListener('keydown', (event) => {
+  const key = event.key;
+  if (DMS_PHYS_KEYS.indexOf(key) === -1) {
+    return;
+  }
+  const physical = key === 'Enter' || key === '=' ? '=' : key === 'Escape' || key.toLowerCase() === 'c' ? 'C' : key;
+  dmsAfter(physical);
+});
+
+// 三个键沿用既有 .key .key--action 样式追加（同 BIN/OCT/HEX 的做法，
+// 不动 LAYOUT / KEY_CLASS——static-check 白名单未收录新 kind）
+[['°', inputDmsDegree, '度'], ['′', inputDmsMinute, '分'], ['″', inputDmsSecond, '秒']].forEach(
+  ([label, handler, name]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'key key--action';
+    button.textContent = label;
+    button.title = `${name}（度分秒）`; // 悬停提示，不影响键面可访问名称
+    button.addEventListener('click', handler);
+    dmsButtons.push(button);
+    keyboard.appendChild(button);
+  },
+);
+
+// =========================================
+// 新增：按键音效（纯追加，不改动上方任何既有逻辑）
+// 用事件委托捕获键盘区的所有点击 + 物理键盘按下，不动 LAYOUT、不动既有按键
+// 分发逻辑、不改任何已有函数。声音用浏览器原生的 AudioContext 实时合成，
+// 不引依赖、不加载音频文件、不加构建工具。
+// 默认关闭：只有用户主动点开「音效」键之后才发声，打开页面不会突然响。
+// =========================================
+
+// 不同类别的按键给不同音高，听感上能区分数字 / 运算 / 清除
+const SOUND_TONES = {
+  'key--normal': 660, // 数字、小数点
+  'key--action': 520, // 运算符与一元运算
+  'key--success': 780, // 等号
+  'key--danger': 300, // 清除
+  'key--backspace': 420, // 退格
+};
+const SOUND_DEFAULT_TONE = 600; // 物理键盘等无法归类时的默认音高
+
+// 只有这些物理按键发声，避免按 F1、Tab 之类的无关键也响
+const SOUND_KEYS = new Set([
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.',
+  '+', '-', '*', '/', 'Enter', '=', 'Backspace', 'Escape', 'c', 'C',
+]);
+
+let audioContext = null;
+let soundEnabled = false;
+
+/**
+ * 惰性创建 AudioContext：浏览器要求页面必须先有用户手势才允许出声，
+ * 所以只有在真正要发声时才创建（此时必然已经发生过点击）。
+ * @returns {AudioContext|null} 浏览器不支持时返回 null，静默降级
+ */
+function getAudioContext() {
+  if (audioContext === null) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+      return null;
+    }
+    audioContext = new Ctor();
+  }
+  // 某些浏览器创建后处于 suspended，出声前恢复一次
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  return audioContext;
+}
+
+/**
+ * 发一声短促的提示音：正弦波 + 快速淡入淡出，避免起停时的爆音。
+ * @param {number} tone 频率（Hz）
+ */
+function playKeyTone(tone) {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    return; // 浏览器不支持音频：静默降级，不影响计算
+  }
+
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(tone, now);
+
+  // 音量包络：10ms 淡入、120ms 淡出，听感是干净的一声「嘀」
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.14);
+}
+
+/** 按按钮的类别挑一个音高；关着的时候什么都不做。 */
+function playSoundForButton(button) {
+  if (!soundEnabled) {
+    return;
+  }
+  const matched = Object.keys(SOUND_TONES).find((cls) => button.classList.contains(cls));
+  playKeyTone(matched ? SOUND_TONES[matched] : SOUND_DEFAULT_TONE);
+}
+
+// 开关键的开启态只有一条高亮规则，随本段代码一起注入，不动 css/style.css
+const soundButtonStyle = document.createElement('style');
+soundButtonStyle.textContent = [
+  '.key--sound-on {',
+  '  background: #2f9e44;',
+  '  color: #fff;',
+  '}',
+].join('\n');
+document.head.appendChild(soundButtonStyle);
+
+// 音效开关按钮：默认关闭，点一下开启，副屏写明当前状态（与「复制」键的做法一致）
+const soundButton = document.createElement('button');
+soundButton.type = 'button';
+soundButton.className = 'key key--action';
+soundButton.textContent = '音效 关';
+
+soundButton.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  soundButton.classList.toggle('key--sound-on', soundEnabled);
+  soundButton.textContent = soundEnabled ? '音效 开' : '音效 关';
+  showSub(soundEnabled ? '按键音效已开启' : '按键音效已关闭');
+
+  // 开启时立刻响一声，让用户确认真的生效了
+  if (soundEnabled) {
+    playKeyTone(SOUND_DEFAULT_TONE);
+  }
+});
+
+keyboard.appendChild(soundButton);
+
+// 事件委托：监听整个键盘区的 click 冒泡，所有按键（含以后新增的）自动发声。
+// 这样完全不用改 LAYOUT 与上面已有的 click 处理逻辑。
+keyboard.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button || button === soundButton) {
+    return; // 开关自己不发声（它的反馈在上面单独处理）
+  }
+  playSoundForButton(button);
+});
+
+// 物理键盘：与上方已有的 keydown 监听并存；长按产生的重复事件只响一次
+document.addEventListener('keydown', (e) => {
+  if (!soundEnabled || e.repeat || !SOUND_KEYS.has(e.key)) {
+    return;
+  }
+  playKeyTone(SOUND_DEFAULT_TONE);
+});
+
+module.exports = {
+  add,
+  squareSum,
+  squareDiff,
+  log10,
+  pow10,
+  mod,
+  sqrt,
+};
