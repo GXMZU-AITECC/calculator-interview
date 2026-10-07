@@ -1,0 +1,48 @@
+name: Reviewer stats
+
+# 只在 develop 上跑：每天北京 21:00 + 手动；不监听 pull_request_review（避免挂到学生 PR 且 fork 审阅 token 写 Issue 403）
+on:
+  schedule:
+    # 13:00 UTC = 21:00 Asia/Shanghai
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      post_digest:
+        description: "Also post a daily digest comment"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: reviewer-stats
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # GITHUB_TOKEN 写 Issue；读 org team 常 404 → 用 STATS_TEAM 兜底（须与真实 team 同步）
+      # 可选：仓库 Secret STATS_TEAM_TOKEN（有 read:org 的 PAT）可自动跟进进退，无需再改下方名单
+      - name: Collect / update dashboard / optional digest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATS_TEAM_TOKEN: ${{ secrets.STATS_TEAM_TOKEN }}
+          STATS_REPO: ${{ github.repository }}
+          STATS_ISSUE: "173"
+          STATS_CUTOFF: "2026-10-04T00:00:00+08:00"
+          STATS_UPDATE_ISSUE: "1"
+          # 定时必发日报；手动按勾选
+          STATS_POST_DIGEST: ${{ github.event_name == 'schedule' && '1' || (inputs.post_digest && '1' || '0') }}
+          # 当前 reviewers team（2026-10-07 核实）：已退出 MOLUOGH / valacoynocecio475-prog / xwms
+          STATS_TEAM: "MU-mu188,Pazburg,Return-leaf,hongwei-2026,hzc1045-web,isryanyhliu,jingdi0112"
+        run: python ci/reviewer-stats/collect.py

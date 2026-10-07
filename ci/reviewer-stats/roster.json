@@ -1,0 +1,68 @@
+{
+  "tracking_started": "2026-10-06T00:00:00+08:00",
+  "note": "正式进退自动追踪自 tracking_started 起。此前已在队成员 joined 记为 bootstrap，历史 Review 在在册窗口内仍计入。",
+  "members": [
+    {
+      "login": "MOLUOGH",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "MU-mu188",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "Pazburg",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "Return-leaf",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "hongwei-2026",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "hzc1045-web",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "isryanyhliu",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "jingdi0112",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "valacoynocecio475-prog",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    },
+    {
+      "login": "xwms",
+      "joined": "2026-09-01T00:00:00+08:00",
+      "left": null,
+      "source": "bootstrap"
+    }
+  ],
+  "events": [],
+  "updated_at": "2026-10-06T23:39:32.560911+08:00"
+}

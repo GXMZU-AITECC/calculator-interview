@@ -550,6 +550,67 @@ test.describe('已合基线：π / % / ± / 括号 / 三角 / xʸ', () => {
   });
 });
 
+test.describe('前端：按键样式与无弹窗', () => {
+  test('键盘内按钮均带 .key 且背景非透明', async ({ page }) => {
+    await page.goto('/');
+    const bad = await page.locator('#keyboard button').evaluateAll((buttons) =>
+      buttons
+        .map((b) => {
+          const cls = b.className || '';
+          const bg = getComputedStyle(b).backgroundColor;
+          const okClass = /\bkey\b/.test(cls);
+          const okBg = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+          return okClass && okBg ? null : `${b.textContent}:${cls}:${bg}`;
+        })
+        .filter(Boolean),
+    );
+    expect(bad, `不合规按键：${bad.join(' | ')}`).toEqual([]);
+  });
+
+  test('点击常用键不弹出 dialog', async ({ page }) => {
+    const dialogs = [];
+    page.on('dialog', async (d) => {
+      dialogs.push(d.type());
+      await d.dismiss();
+    });
+    await page.goto('/');
+    for (const label of ['1', '+', '2', '=', 'C', '√', 'π', '复制']) {
+      if ((await key(page, label).count()) === 0) continue;
+      await clickKey(page, label);
+    }
+    expect(dialogs, `不应出现系统弹窗：${dialogs.join(',')}`).toEqual([]);
+  });
+});
+
+test.describe('已合键抽查（存在才测）', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('mod：10 mod 3 = 得到 1', async ({ page }) => {
+    test.skip((await key(page, 'mod').count()) === 0, '无 mod 键，跳过');
+    await withPageErrors(page, async () => {
+      await clickKey(page, '1');
+      await clickKey(page, '0');
+      await clickKey(page, 'mod');
+      await clickKey(page, '3');
+      await clickKey(page, '=');
+      await expect(page.locator('#display-main')).toHaveText('1');
+    });
+  });
+
+  test('奇/偶：结果后按数字须覆盖主屏（不得拼接）', async ({ page }) => {
+    test.skip((await key(page, '奇 / 偶').count()) === 0, '无 奇/偶 键，跳过');
+    await withPageErrors(page, async () => {
+      await clickKey(page, '7');
+      await clickKey(page, '奇 / 偶');
+      await expect(page.locator('#display-main')).toHaveText('奇数');
+      await clickKey(page, '5');
+      await expect(page.locator('#display-main')).toHaveText('5');
+    });
+  });
+});
+
 test.describe('健壮性：隐藏回归与错误恢复', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
