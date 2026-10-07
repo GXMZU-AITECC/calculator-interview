@@ -1717,3 +1717,391 @@ document.addEventListener('keydown', (e) => {
   }
   playKeyTone(SOUND_DEFAULT_TONE);
 });
+
+// =================================================================
+// 新增：二次函数抛物线简易绘图功能（关联 Issue #133）
+// =================================================================
+
+/**
+ * 生成二次函数 y = ax² + bx + c 的坐标点数组。
+ * @param {number} a 二次项系数（不能为 0）
+ * @param {number} b 一次项系数
+ * @param {number} c 常数项
+ * @param {number} xMin X 区间起始值
+ * @param {number} xMax X 区间结束值
+ * @param {number} step 采样步长
+ * @returns {Array<{x: number, y: number}>|string} 成功返回坐标数组，失败返回错误提示字符串
+ */
+function drawParabola(a, b, c, xMin, xMax, step) {
+  // 1. 参数校验：必须全是有效数字，且 a 不能等于 0
+  //    用 typeof + Number.isFinite 而非 isNaN：
+  //    isNaN('') / isNaN(null) / isNaN([]) 都是 false，会漏掉非法输入。
+  if ([a, b, c, xMin, xMax, step].some((v) => typeof v !== 'number' || !Number.isFinite(v))) {
+    return '错误：请输入有效的数字参数';
+  }
+  if (a === 0) {
+    return '错误：a不能等于0，否则不是二次函数';
+  }
+  if (step <= 0) {
+    return '错误：步长需大于0';
+  }
+  if (xMin >= xMax) {
+    return '错误：起始值需小于结束值';
+  }
+
+  // 2. 计算坐标点（安全保护：最多计算 2000 个点，防止步长过小导致浏览器死循环）
+  const points = [];
+  const MAX_POINTS = 2000;
+  let count = 0;
+  for (let x = xMin; x <= xMax + 1e-9 && count < MAX_POINTS; x += step) {
+    const xs = Number(x.toFixed(4)); // 消除浮点长尾
+    const y = a * xs * xs + b * xs + c;
+    points.push({ x: xs, y: Number(y.toFixed(4)) });
+    count++;
+  }
+  return points;
+}
+
+// ---------------------------------------------------------------
+// 绘图结果面板：动态创建，全部样式内联，挂在键盘之后（显示区之外）
+// ---------------------------------------------------------------
+const parabolaPanel = document.createElement('section');
+parabolaPanel.id = 'parabola-panel';
+parabolaPanel.setAttribute('aria-label', '抛物线绘图区');
+// 内联样式（不改 css/style.css）
+parabolaPanel.style.marginTop = '16px';
+parabolaPanel.style.padding = '12px';
+parabolaPanel.style.borderRadius = '12px';
+parabolaPanel.style.background = 'rgba(255,255,255,0.55)';
+parabolaPanel.style.textAlign = 'center';
+
+// 标题
+const parabolaTitle = document.createElement('h3');
+parabolaTitle.textContent = '抛物线绘图';
+parabolaTitle.style.margin = '0 0 8px';
+parabolaTitle.style.fontSize = '14px';
+parabolaTitle.style.color = 'var(--panel)';
+parabolaPanel.appendChild(parabolaTitle);
+
+// 参数输入行：a / b / c
+const parabolaForm = document.createElement('div');
+parabolaForm.style.display = 'flex';
+parabolaForm.style.gap = '8px';
+parabolaForm.style.marginBottom = '8px';
+
+const parabolaInputs = {};
+['a', 'b', 'c'].forEach((key) => {
+  const wrap = document.createElement('label');
+  wrap.style.flex = '1';
+  wrap.style.display = 'flex';
+  wrap.style.alignItems = 'center';
+  wrap.style.gap = '4px';
+  wrap.style.fontSize = '13px';
+  wrap.style.color = 'var(--panel)';
+
+  const span = document.createElement('span');
+  span.textContent = key;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.inputMode = 'decimal';
+  input.value = key === 'a' ? '1' : '0';
+  input.setAttribute('aria-label', `系数 ${key}`);
+  input.style.width = '100%';
+  input.style.minWidth = '0';
+  input.style.padding = '4px 6px';
+  input.style.border = '1px solid #9aa4bd';
+  input.style.borderRadius = '6px';
+  input.style.fontSize = '13px';
+  input.style.background = '#fff';
+  input.style.color = '#020202';
+
+  wrap.appendChild(span);
+  wrap.appendChild(input);
+  parabolaForm.appendChild(wrap);
+  parabolaInputs[key] = input;
+});
+parabolaPanel.appendChild(parabolaForm);
+
+// 操作按钮行（复用既有 .key .key--success / .key--danger 样式，仅补尺寸内联）
+const parabolaActions = document.createElement('div');
+parabolaActions.style.display = 'flex';
+parabolaActions.style.gap = '8px';
+parabolaActions.style.marginBottom = '8px';
+
+const parabolaDrawBtn = document.createElement('button');
+parabolaDrawBtn.type = 'button';
+parabolaDrawBtn.className = 'key key--success';
+parabolaDrawBtn.textContent = '绘制';
+parabolaDrawBtn.style.flex = '1';
+parabolaDrawBtn.style.padding = '6px 0';
+parabolaDrawBtn.style.border = 'none';
+parabolaDrawBtn.style.borderRadius = '8px';
+parabolaDrawBtn.style.cursor = 'pointer';
+
+const parabolaClearBtn = document.createElement('button');
+parabolaClearBtn.type = 'button';
+parabolaClearBtn.className = 'key key--danger';
+parabolaClearBtn.textContent = '清除图形';
+parabolaClearBtn.style.flex = '1';
+parabolaClearBtn.style.padding = '6px 0';
+parabolaClearBtn.style.border = 'none';
+parabolaClearBtn.style.borderRadius = '8px';
+parabolaClearBtn.style.cursor = 'pointer';
+
+parabolaActions.appendChild(parabolaDrawBtn);
+parabolaActions.appendChild(parabolaClearBtn);
+parabolaPanel.appendChild(parabolaActions);
+
+// 提示行
+const parabolaHint = document.createElement('div');
+parabolaHint.style.minHeight = '18px';
+parabolaHint.style.fontSize = '12px';
+parabolaHint.style.color = 'var(--text-sub)';
+parabolaHint.style.wordBreak = 'break-all';
+parabolaPanel.appendChild(parabolaHint);
+
+// canvas 画布（固定 480×320 逻辑尺寸，用内联样式控制显示宽度）
+const PARABOLA_W = 480;
+const PARABOLA_H = 320;
+const parabolaCanvas = document.createElement('canvas');
+parabolaCanvas.width = PARABOLA_W;
+parabolaCanvas.height = PARABOLA_H;
+parabolaCanvas.setAttribute('aria-label', '抛物线图像');
+parabolaCanvas.style.width = '100%';
+parabolaCanvas.style.height = 'auto';
+parabolaCanvas.style.display = 'block';
+parabolaCanvas.style.background = '#fbfcff';
+parabolaCanvas.style.borderRadius = '8px';
+// 控制显示高度，避免整个计算器被撑得过长
+parabolaCanvas.style.maxHeight = '200px';
+parabolaCanvas.style.objectFit = 'contain';
+parabolaPanel.appendChild(parabolaCanvas);
+
+// 挂到 main.calculator 内、keyboard 之外。
+// 注意：不能挂进 #keyboard —— 它是 4 列 grid 容器，
+// 面板会作为其中一个网格项被压成 1/4 宽。
+const parabolaHost = document.querySelector('main.calculator');
+if (parabolaHost) {
+  parabolaHost.appendChild(parabolaPanel);
+}
+
+/**
+ * 把坐标点画到 canvas 上（网格 + 坐标轴 + 抛物线 + 顶点）。
+ * @param {Array<{x: number, y: number}>} points drawParabola 的返回值
+ */
+function renderParabola(points) {
+  const ctx = parabolaCanvas.getContext('2d');
+  const W = PARABOLA_W;
+  const H = PARABOLA_H;
+  const PAD = 28;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!points || points.length === 0) {
+    return;
+  }
+
+  // 数据范围
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  let xMin = Math.min.apply(null, xs);
+  let xMax = Math.max.apply(null, xs);
+  let yMin = Math.min.apply(null, ys);
+  let yMax = Math.max.apply(null, ys);
+
+  // y 轴留 10% 余量；全相等时人为撑开
+  let yPad = (yMax - yMin) * 0.1;
+  if (yPad === 0) {
+    yPad = Math.max(1, Math.abs(yMax) * 0.1);
+  }
+  yMin -= yPad;
+  yMax += yPad;
+
+  const sx = (x) => PAD + ((x - xMin) / (xMax - xMin || 1)) * (W - PAD * 2);
+  const sy = (y) => H - PAD - ((y - yMin) / (yMax - yMin || 1)) * (H - PAD * 2);
+
+  // 1) 网格
+  ctx.strokeStyle = '#e2e6f0';
+  ctx.lineWidth = 1;
+  const GX = 8;
+  const GY = 6;
+  for (let i = 1; i < GX; i++) {
+    const px = PAD + (i / GX) * (W - PAD * 2);
+    ctx.beginPath();
+    ctx.moveTo(px, PAD);
+    ctx.lineTo(px, H - PAD);
+    ctx.stroke();
+  }
+  for (let j = 1; j < GY; j++) {
+    const py = PAD + (j / GY) * (H - PAD * 2);
+    ctx.beginPath();
+    ctx.moveTo(PAD, py);
+    ctx.lineTo(W - PAD, py);
+    ctx.stroke();
+  }
+
+  // 2) 坐标轴（原点在可视范围内才画）
+  ctx.strokeStyle = '#8b93a8';
+  ctx.lineWidth = 1.2;
+  if (0 >= xMin && 0 <= xMax) {
+    const ay = sx(0);
+    ctx.beginPath();
+    ctx.moveTo(ay, PAD);
+    ctx.lineTo(ay, H - PAD);
+    ctx.stroke();
+  }
+  if (0 >= yMin && 0 <= yMax) {
+    const ax = sy(0);
+    ctx.beginPath();
+    ctx.moveTo(PAD, ax);
+    ctx.lineTo(W - PAD, ax);
+    ctx.stroke();
+  }
+
+  // 外框
+  ctx.strokeStyle = '#c3c9d8';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(PAD, PAD, W - PAD * 2, H - PAD * 2);
+
+  // 3) 抛物线折线（超出可视区则断开，避免出现巨大竖线）
+  ctx.strokeStyle = '#2b6cff';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let drawing = false;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const cx = sx(p.x);
+    const cy = sy(p.y);
+    const inside = cy >= PAD && cy <= H - PAD;
+    if (inside) {
+      if (drawing) {
+        ctx.lineTo(cx, cy);
+      } else {
+        ctx.moveTo(cx, cy);
+        drawing = true;
+      }
+    } else {
+      drawing = false;
+    }
+  }
+  ctx.stroke();
+
+  // 4) 顶点标记（顶点 x = -b / (2a)）
+  const va = Number(parabolaInputs.a.value);
+  const vb = Number(parabolaInputs.b.value);
+  const vc = Number(parabolaInputs.c.value);
+  if (Number.isFinite(va) && va !== 0 && Number.isFinite(vb) && Number.isFinite(vc)) {
+    const vx = -vb / (2 * va);
+    const vy = va * vx * vx + vb * vx + vc;
+    if (vx >= xMin && vx <= xMax && vy >= yMin && vy <= yMax) {
+      ctx.fillStyle = '#fa6666';
+      ctx.beginPath();
+      ctx.arc(sx(vx), sy(vy), 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/**
+ * 严格解析「十进制数字」字符串，拒绝 0x / 0b / 0o 等其它进制写法。
+ * （Number('0x10') === 16，会被误当成合法输入）
+ * @param {string} s 去空白后的字符串
+ * @returns {number|null} 合法则返回数字，否则 null
+ */
+function parseParabolaDecimal(s) {
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s)) {
+    return null;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 读取并校验三个输入框。 */
+function readParabolaInputs() {
+  const raw = {
+    a: parabolaInputs.a.value.trim(),
+    b: parabolaInputs.b.value.trim(),
+    c: parabolaInputs.c.value.trim(),
+  };
+  if (raw.a === '' || raw.b === '' || raw.c === '') {
+    return { ok: false, reason: '请输入 a、b、c（不能留空）' };
+  }
+  const a = parseParabolaDecimal(raw.a);
+  const b = parseParabolaDecimal(raw.b);
+  const c = parseParabolaDecimal(raw.c);
+  if (a === null || b === null || c === null) {
+    return { ok: false, reason: '错误：请输入有效的数字参数' };
+  }
+  if (a === 0) {
+    return { ok: false, reason: '错误：a不能等于0，否则不是二次函数' };
+  }
+  return { ok: true, a: a, b: b, c: c };
+}
+
+/** 绘制按钮处理。 */
+function handleParabolaDraw() {
+  const parsed = readParabolaInputs();
+  if (!parsed.ok) {
+    parabolaHint.textContent = parsed.reason;
+    parabolaHint.style.color = 'var(--key-danger)';
+    renderParabola([]);
+    return;
+  }
+
+  const result = drawParabola(parsed.a, parsed.b, parsed.c, -10, 10, 0.5);
+  if (typeof result === 'string') {
+    parabolaHint.textContent = result;
+    parabolaHint.style.color = 'var(--key-danger)';
+    renderParabola([]);
+    return;
+  }
+
+  parabolaHint.style.color = 'var(--text-sub)';
+  parabolaHint.textContent = 'y=' + parsed.a + 'x²+' + parsed.b + 'x+' + parsed.c +
+    ' | 数据点:' + result.length + '个';
+  renderParabola(result);
+}
+
+/** 清除按钮处理。 */
+function handleParabolaClear() {
+  renderParabola([]);
+  parabolaHint.textContent = '';
+  parabolaHint.style.color = 'var(--text-sub)';
+}
+
+parabolaDrawBtn.addEventListener('click', handleParabolaDraw);
+parabolaClearBtn.addEventListener('click', handleParabolaClear);
+
+// 初始绘制一条默认抛物线 y = x²
+handleParabolaDraw();
+
+// 供外部/测试调用
+if (typeof window !== 'undefined') {
+  window.drawParabola = drawParabola;
+}
+
+// ---------------------------------------------------------------
+// 阻止绘图输入框里的按键泄漏到计算器
+// 原文件的物理键盘监听挂在 document 上（约 774 行）且不判断事件目标，
+// 在输入框里打字会被它当成计算器输入。这里在捕获阶段拦下。
+// ---------------------------------------------------------------
+document.addEventListener(
+  'keydown',
+  (e) => {
+    const target = e.target;
+    if (!target || target.tagName !== 'INPUT') {
+      return;
+    }
+    if (!parabolaPanel.contains(target)) {
+      return;
+    }
+    e.stopImmediatePropagation(); // 同节点同阶段，需用 stopImmediatePropagation
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleParabolaDraw();
+    }
+  },
+  true,
+);
