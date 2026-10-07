@@ -19,6 +19,29 @@ function add(a, b) {
   return a + b;
 }
 /**
+ * 取模：求 a 除以 b 的余数
+ * @param {number} a
+ * @param {number} b
+ * @returns {number} 余数
+ */
+function mod(a, b) {
+  const numA = Number(a);
+  const numB = Number(b);
+  if (isNaN(numA) || isNaN(numB)) return NaN;
+  return numA % numB;
+}
+
+/**
+ * 平方根：求 a 的算术平方根
+ * @param {number} a
+ * @returns {number} 平方根
+ */
+function sqrt(a) {
+  const num = Number(a);
+  if (isNaN(num) || num < 0) return NaN;
+  return Math.sqrt(num);
+}
+/**
  * 常用对数 log10
  * @param {number} x 输入数字
  * @returns {number|string} 以10为底的对数，x≤0返回非法输入
@@ -1119,3 +1142,27 @@ cubeButton.className = 'key key--action';
 cubeButton.textContent = 'x³';
 cubeButton.addEventListener('click', inputCube);
 keyboard.appendChild(cubeButton);
+
+/**
+ * 取模：求 a 除以 b 的余数
+ * @param {number} a
+ * @param {number} b
+ * @returns {number} 余数
+ */
+function mod(a, b) {
+  const numA = Number(a);
+  const numB = Number(b);
+  if (isNaN(numA) || isNaN(numB)) return NaN;
+  return numA % numB;
+}
+
+/**
+ * 平方根：求 a 的算术平方根
+ * @param {number} a
+ * @returns {number} 平方根
+ */
+function sqrt(a) {
+  const num = Number(a);
+  if (isNaN(num) || num < 0) return NaN;
+  return Math.sqrt(num);
+}
