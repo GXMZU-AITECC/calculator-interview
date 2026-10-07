@@ -18,6 +18,40 @@ function add(a, b) {
   // TODO: 整个计算器现在只会这一件事，而且还没实现——等着你的 PR
   return a + b;
 }
+
+ /**
+  * 取模：求 a 除以 b 的余数
+  * @param {number} a
+  * @param {number} b
+  * @returns {number} 余数
+  */
+ function mod(a, b) {
+   const numA = Number(a);
+   const numB = Number(b);
+   if (isNaN(numA) || isNaN(numB)) return NaN;
+   return numA % numB;
+ }
+
+/**
+ * 平方根：求 a 的算术平方根
+ * @param {number} a
+ * @returns {number} 平方根
+ */
+function sqrt(a) {
+  const num = Number(a);
+  if (isNaN(num) || num < 0) return NaN;
+  return Math.sqrt(num);
+}
+ /**
+  * 平方根：求 a 的算术平方根
+  * @param {number} a
+  * @returns {number} 平方根
+  */
+ function sqrt(a) {
+   const num = Number(a);
+   if (isNaN(num) || num < 0) return NaN;
+   return Math.sqrt(num);
+ }
 /**
  * 常用对数 log10
  * @param {number} x 输入数字
