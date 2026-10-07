@@ -1142,3 +1142,9 @@ cubeButton.className = 'key key--action';
 cubeButton.textContent = 'x³';
 cubeButton.addEventListener('click', inputCube);
 keyboard.appendChild(cubeButton);
+
+module.exports = {
+  add,
+  mod,
+  sqrt
+};
