@@ -334,6 +334,56 @@ function inputBackspace() {
   text = text.slice(0, -1) || INITIAL;
   show();
 }
+// ================= 长按退格连续删除功能 =================
+(function() {
+    // 自动查找页面上的退格按钮
+    const backspaceBtn = Array.from(document.querySelectorAll('button')).find(btn => 
+        btn.textContent.includes('退格') || 
+        btn.textContent.includes('⌫') || 
+        btn.id.toLowerCase().includes('backspace')
+    );
+
+    if (backspaceBtn) {
+        let repeatTimer = null;
+        let isHolding = false;
+
+        // 鼠标按下时触发
+        backspaceBtn.addEventListener('mousedown', () => {
+            isHolding = true;
+            inputBackspace(); // 立即删除一次
+
+            // 延迟 500 毫秒后，如果还在按住，就开始连续删除（每 100 毫秒删一次）
+            repeatTimer = setInterval(() => {
+                if (isHolding) inputBackspace();
+            }, 100);
+        });
+
+        // 停止长按的操作
+        const stopHolding = () => {
+            isHolding = false;
+            if (repeatTimer) {
+                clearInterval(repeatTimer);
+                repeatTimer = null;
+            }
+        };
+
+        // 鼠标松开、移出按钮时，停止删除
+        backspaceBtn.addEventListener('mouseup', stopHolding);
+        backspaceBtn.addEventListener('mouseleave', stopHolding);
+        
+        // 兼容手机端触摸屏
+        backspaceBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isHolding = true;
+            inputBackspace();
+            repeatTimer = setInterval(() => {
+                if (isHolding) inputBackspace();
+            }, 100);
+        });
+        backspaceBtn.addEventListener('touchend', stopHolding);
+        backspaceBtn.addEventListener('touchcancel', stopHolding);
+    }
+})();
 
 function inputClearEntry() {
   text = INITIAL;
