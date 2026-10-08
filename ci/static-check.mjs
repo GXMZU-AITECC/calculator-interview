@@ -47,8 +47,15 @@ function bad(msg) {
   failures.push(msg);
 }
 
+/** 样式源：CSS 文件 + main.js 内联 style 文本，用于核对 key--* 是否定义 */
+function hasClassSelector(styleSrc, cls) {
+  const esc = cls.replace(/-/g, '\\-');
+  return new RegExp(`\\.${esc}\\b`).test(styleSrc);
+}
+
 /** 从 main.js 抽出 LAYOUT / KEY_CLASS / OPERATORS，做维护向一致性检查（不强制分发写法）。 */
-function checkMaintainability(js) {
+function checkMaintainability(js, css) {
+  const styleSrc = `${css}\n${js}`;
   const layoutMatch = js.match(/const LAYOUT\s*=\s*\[([\s\S]*?)\];/);
   if (!layoutMatch) {
     bad('未找到 const LAYOUT = [...]，无法做键位一致性检查');
@@ -79,6 +86,7 @@ function checkMaintainability(js) {
   }
 
   const keyClassMatch = js.match(/const KEY_CLASS\s*=\s*\{([\s\S]*?)\};/);
+  let keyClassNames = [];
   if (!keyClassMatch) {
     bad('未找到 const KEY_CLASS = {...}');
   } else {
@@ -87,14 +95,53 @@ function checkMaintainability(js) {
     const missingAll = kinds.filter((k) => !new RegExp(`\\b${k}\\s*:`).test(keyClassBody));
     if (missingAll.length) bad(`KEY_CLASS 未覆盖 LAYOUT kind：${missingAll.join(', ')}`);
     else ok('KEY_CLASS 覆盖全部 LAYOUT kind');
+
+    keyClassNames = [...keyClassBody.matchAll(/:\s*'((?:\\'|[^'])*)'/g)].map((m) => m[1]);
+    const missingCss = [...new Set(keyClassNames)].filter((cls) => !hasClassSelector(styleSrc, cls));
+    if (missingCss.length) {
+      bad(`KEY_CLASS 样式类未在 CSS/内联样式中定义：${missingCss.map((c) => `.${c}`).join(', ')}`);
+    } else {
+      ok('KEY_CLASS 样式类均有 CSS/内联定义');
+    }
   }
+
+  // 动态按键 className：仅约束带 key / key--* 的赋值（历史列表等其它 UI 类跳过）
+  const dynClasses = [...js.matchAll(/\.className\s*=\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  const keyDyn = dynClasses.filter((cn) => {
+    const parts = cn.split(/\s+/);
+    return parts.includes('key') || parts.some((c) => c.startsWith('key--'));
+  });
+  const dynBad = [];
+  for (const cn of keyDyn) {
+    const parts = cn.split(/\s+/);
+    if (!parts.includes('key')) {
+      dynBad.push(`缺 key：${cn}`);
+      continue;
+    }
+    const mods = parts.filter((c) => c.startsWith('key--'));
+    if (!mods.length) {
+      dynBad.push(`缺 key--*：${cn}`);
+      continue;
+    }
+    for (const m of mods) {
+      if (!hasClassSelector(styleSrc, m)) dynBad.push(`未定义 .${m}（用于 ${cn}）`);
+    }
+  }
+  if (dynBad.length) bad(`动态按键 className 不合规：${dynBad.slice(0, 8).join('；')}`);
+  else if (keyDyn.length) ok(`动态按键 className 检查通过（${keyDyn.length} 处）`);
+  else ok('无动态按键 className 赋值（跳过）');
 
   const opsMatch = js.match(/const OPERATORS\s*=\s*\{([\s\S]*?)\};/);
   if (!opsMatch) {
     bad('未找到 const OPERATORS = {...}');
   } else {
     const opLabels = pairs.filter(([, kind]) => kind === 'operator').map(([label]) => label);
-    const missingOps = opLabels.filter((label) => !opsMatch[1].includes(`'${label}'`));
+    const lateOps = [
+      ...js.matchAll(/OPERATORS\s*\[\s*['"]([^'"]+)['"]\s*\]\s*=/g),
+    ].map((m) => m[1]);
+    const missingOps = opLabels.filter(
+      (label) => !opsMatch[1].includes(`'${label}'`) && !lateOps.includes(label),
+    );
     if (missingOps.length) bad(`OPERATORS 缺少 operator 键面实现：${missingOps.join(', ')}`);
     else ok(`OPERATORS 覆盖全部 operator 键（${opLabels.join(', ') || '无'}）`);
   }
@@ -110,6 +157,13 @@ function checkMaintainability(js) {
     bad('js/main.js 存在空 catch（吞错藏病）');
   } else {
     ok('js/main.js 无空 catch');
+  }
+
+  // 系统弹窗破坏「纯按键」交互，也难被冒烟稳定覆盖
+  if (/\bprompt\s*\(|\balert\s*\(|\bconfirm\s*\(/.test(js)) {
+    bad('js/main.js 出现 prompt/alert/confirm（请用计算器按键交互，勿弹系统框）');
+  } else {
+    ok('js/main.js 无 prompt/alert/confirm');
   }
 }
 
@@ -206,7 +260,8 @@ async function main() {
       ok('js/main.js 无 CDN 痕迹');
     }
 
-    checkMaintainability(js);
+    const cssText = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
+    checkMaintainability(js, cssText);
     await runEslintNoUndef();
   }
 

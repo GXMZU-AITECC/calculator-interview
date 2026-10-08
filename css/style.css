@@ -1,25 +1,121 @@
 /* =========================================================
-   简易计算器 样式（种子）
-   配色移植自 Python 桌面版 demo（customtkinter 深色主题）。
-   已就绪：显示区、键盘容器（4 列网格）、按键样式类（预留）。
+   简易计算器 样式
+   按键按语义分组配色：数字 / 运算符 / 科学功能 / 内存 / 编辑 / 等号 / 清除。
+   整体单色，只保留两处强调：等号（反相色块）与清除键（红字）。
    ========================================================= */
 
 /* ---------- 全局 ---------- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #c6d5f8;            /* 页面背景 */
-  --panel: #203052;         /* 计算器面板 */
-  --display-bg: #cacded;    /* 显示区背景 */
-  --display-text: #020202;  /* 主屏文字 */
-  --text-sub: #898b91;      /* 副屏/次要文字 */
+  /* 页面 / 面板 / 显示区 */
+  --bg: #0a0b0d;
+  --panel: #121316;
+  --display-bg: #0c0d10;
+  --line: rgba(255, 255, 255, .07);
+  --line-strong: rgba(255, 255, 255, .16);
 
-  /* 按键配色（对应 Python 版 view.py 的 colors 表） */
-  --key-normal: #e7e7e7;    /* 数字键 */
-  --key-action: #fd8821;    /* 运算符键 */
-  --key-danger: #fa6666;    /* CLEAR 键 */
-  --key-success: #26e9b5;   /* 等号键 */
-  --key-backspace: #d4aded;  /* 新增退格键颜色*/
+  /* 文字（主 / 次 / 弱） */
+  --text-primary: #f2f3f5;
+  --text-secondary: #9aa1ab;
+  --text-tertiary: #6b727c;
+
+  /* 按键配色（按语义分组） */
+  --key-digit-bg: #202329;    --key-digit-text: #f2f3f5;
+  --key-sci-bg: #17191d;      --key-sci-text: #b6bcc5;
+  --key-mem-bg: #17191d;      --key-mem-text: #8a919b;
+  --key-edit-bg: #17191d;     --key-edit-text: #b6bcc5;
+  --key-op-bg: #2a2e36;       --key-op-text: #ffffff;
+  --key-equals-bg: #f2f3f5;   --key-equals-text: #0a0b0d;
+  --key-clear-bg: #17191d;    --key-clear-text: #e5484d;
+
+  /* 悬停 / 按下叠加 */
+  --key-active: rgba(0, 0, 0, .28);
+  --hover-bg: rgba(255, 255, 255, .05);
+
+  /* 主题切换：告诉浏览器滚动条/表单该按深色还是浅色渲染 */
+  --scheme: dark;
+  /* 强调色：只用在「皮肤」键上，做入口识别 */
+  --accent: #8ab4f8;
+}
+
+/* ---------- 主题皮肤（由 js/main.js 切换 <html data-theme> 生效） ----------
+   默认深空＝上面的 :root，无需覆盖。
+   以下三套只覆盖同一批变量，因此显示区结构、字号、布局完全不动。
+   ---------- */
+[data-theme="light"] {
+  --bg: #f2f3f5;
+  --panel: #ffffff;
+  --display-bg: #f7f8fa;
+  --line: rgba(0, 0, 0, .08);
+  --line-strong: rgba(0, 0, 0, .18);
+
+  --text-primary: #1c1e21;
+  --text-secondary: #5f6368;
+  --text-tertiary: #8a9099;
+
+  --key-digit-bg: #e8eaed;    --key-digit-text: #1c1e21;
+  --key-sci-bg: #f1f3f4;      --key-sci-text: #444a51;
+  --key-mem-bg: #f1f3f4;      --key-mem-text: #6b7178;
+  --key-edit-bg: #f1f3f4;     --key-edit-text: #444a51;
+  --key-op-bg: #dfe3e8;       --key-op-text: #1c1e21;
+  --key-equals-bg: #1c1e21;   --key-equals-text: #ffffff;
+  --key-clear-bg: #f1f3f4;    --key-clear-text: #d13438;
+
+  --key-active: rgba(0, 0, 0, .10);
+  --hover-bg: rgba(0, 0, 0, .05);
+  --scheme: light;
+  --accent: #1a73e8;
+}
+
+[data-theme="mint"] {
+  --bg: #eef7f3;
+  --panel: #ffffff;
+  --display-bg: #e9f4ef;
+  --line: rgba(0, 0, 0, .08);
+  --line-strong: rgba(0, 0, 0, .16);
+
+  --text-primary: #12332a;
+  --text-secondary: #4e6b62;
+  --text-tertiary: #7a968d;
+
+  --key-digit-bg: #e2f0ea;    --key-digit-text: #12332a;
+  --key-sci-bg: #eef7f2;      --key-sci-text: #39655a;
+  --key-mem-bg: #eef7f2;      --key-mem-text: #5c8378;
+  --key-edit-bg: #eef7f2;     --key-edit-text: #39655a;
+  --key-op-bg: #d3e9df;       --key-op-text: #12332a;
+  --key-equals-bg: #1d9e75;   --key-equals-text: #ffffff;
+  --key-clear-bg: #eef7f2;    --key-clear-text: #b0462f;
+
+  --key-active: rgba(0, 0, 0, .10);
+  --hover-bg: rgba(0, 0, 0, .05);
+  --scheme: light;
+  --accent: #0f6e56;
+}
+
+[data-theme="amber"] {
+  --bg: #1a1410;
+  --panel: #241c16;
+  --display-bg: #1d1712;
+  --line: rgba(255, 255, 255, .08);
+  --line-strong: rgba(255, 255, 255, .18);
+
+  --text-primary: #f7efe6;
+  --text-secondary: #c3b4a6;
+  --text-tertiary: #9a8878;
+
+  --key-digit-bg: #332720;    --key-digit-text: #f7efe6;
+  --key-sci-bg: #2a211a;      --key-sci-text: #d6c6b6;
+  --key-mem-bg: #2a211a;      --key-mem-text: #a89684;
+  --key-edit-bg: #2a211a;     --key-edit-text: #d6c6b6;
+  --key-op-bg: #43342a;       --key-op-text: #ffffff;
+  --key-equals-bg: #f0a45c;   --key-equals-text: #2a1a0c;
+  --key-clear-bg: #2a211a;    --key-clear-text: #ef8b6e;
+
+  --key-active: rgba(0, 0, 0, .28);
+  --hover-bg: rgba(255, 255, 255, .05);
+  --scheme: dark;
+  --accent: #f0a45c;
 }
 
 body {
@@ -28,42 +124,47 @@ body {
   justify-content: center;
   align-items: center;
   background: var(--bg);
+  color: var(--text-primary);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  color-scheme: dark;
+  color-scheme: var(--scheme, dark);
 }
 
 /* ---------- 计算器面板 ---------- */
 .calculator {
-  width: 340px;
-  padding: 20px;
+  width: 344px;
+  padding: 18px;
   background: var(--panel);
-  /* 连续曲率圆角（squircle）：Chrome 139+ 生效，其余浏览器退化为普通圆角（#120） */
-  border-radius: 30px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  /* 连续曲率圆角（squircle）：Chrome 139+ 生效，其余浏览器退化为普通圆角 */
   corner-shape: squircle;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
 }
 
-/* ---------- 显示区（种子已就绪） ---------- */
+/* ---------- 显示区（主屏等宽数字，右对齐） ---------- */
 .display__main {
-  height: 90px;
-  padding: 0 12px;
-  font-size: 48px;
-  font-weight: bold;
-  line-height: 90px;
-  color: var(--display-text);
+  height: 72px;
+  padding: 0 14px;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 70px;
+  letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
   background: var(--display-bg);
-  border: 2px solid #3a4152;
-  /* 与面板同一套曲率语言，层级递减（#120） */
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   corner-shape: squircle;
   text-align: right;
   overflow-x: auto;      /* 内容过长时横向滚动 */
   white-space: nowrap;
-  /* 只隐藏滚动条外观，滚动能力保留（#123） */
+  /* 只隐藏滚动条外观，滚动能力保留 */
   scrollbar-width: none;          /* Firefox */
   -ms-overflow-style: none;       /* 旧 Edge / IE */
 }
 
-/* Chromium / Safari：把滚动条画成 0 尺寸（#123） */
+/* Chromium / Safari：把滚动条画成 0 尺寸 */
 .display__main::-webkit-scrollbar {
   width: 0;
   height: 0;
@@ -71,139 +172,168 @@ body {
 }
 
 .display__sub {
-  min-height: 18px;
-  padding: 4px 6px 0;
-  font-size: 20px;
-  color: var(--text-sub);
+  min-height: 20px;
+  padding: 6px 4px 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---------- 键盘容器（种子已就绪：4 列网格，内部为空） ---------- */
+/* ---------- 键盘容器：4 列网格 ---------- */
 .keyboard {
   margin-top: 12px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 8px;
 }
 
-/* ---------- 按键样式（预留：等按键 PR 来使用） ---------- */
+/* ---------- 按键 ---------- */
 .key {
-  height: 52px;
+  height: 50px;
   border: none;
-  /* 与面板同一套曲率语言，层级递减（#120） */
-  border-radius: 18px;
+  border-radius: 12px;
   corner-shape: squircle;
-  font-size: 24px;
-  font-weight: bold;
-  color: #323232;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  /* 按下反馈用 transform 实现：纯视觉，不参与布局、不会挤动其它键（#121） */
-  transition: transform .12s ease, filter .15s;
+  /* 悬停：细内描边；按下：暗色叠加 + 轻微缩放 */
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow .15s ease, transform .1s ease;
 }
-.key:hover  { filter: brightness(1.15); }
-.key:active { transform: scale(.94); filter: brightness(.9); }
 
-/* 尊重系统的「减少动态效果」偏好：不做缩放，只保留亮度反馈 */
+.key:hover  { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.key:active { transform: scale(.97); background-image: linear-gradient(var(--key-active), var(--key-active)); }
+
+/* 尊重系统的「减少动态效果」偏好：不做缩放与过渡 */
 @media (prefers-reduced-motion: reduce) {
   .key { transition: none; }
   .key:active { transform: none; }
 }
 
-.key--normal  { background: var(--key-normal); }   /* 数字键 */
-.key--action  { background: var(--key-action); }   /* 运算符键 */
-.key--danger  { background: var(--key-danger); }   /* CLEAR 键 */
-.key--success { background: var(--key-success); }  /* 等号键 */
-.key--backspace { background: var(--key-backspace); }  /* 新增退格键样式类 */
+/* 按键分组：数字 / 科学功能 / 内存 / 编辑 / 运算符 / 等号 / 清除 */
+.key--digit    { background-color: var(--key-digit-bg);  color: var(--key-digit-text); }
+.key--sci      { background-color: var(--key-sci-bg);    color: var(--key-sci-text); }
+.key--mem      { background-color: var(--key-mem-bg);    color: var(--key-mem-text); }
+.key--edit     { background-color: var(--key-edit-bg);   color: var(--key-edit-text); }
+.key--operator { background-color: var(--key-op-bg);     color: var(--key-op-text); font-size: 17px; font-weight: 600; }
+.key--equals   { background-color: var(--key-equals-bg); color: var(--key-equals-text); font-size: 17px; font-weight: 600; grid-column: span 2; }
+.key--clear    { background-color: var(--key-clear-bg);  color: var(--key-clear-text); font-weight: 600; }
 
-.key--wide { grid-column: span 2; }  /* 占两列（如 0 键，对应 Python 版 colspan=2） */
+/* 占位与个别标签适配 */
+.key--round { font-size: 16px; white-space: nowrap; }  /* 四舍五入标签较长 */
+
+/* 度 / 分 / 秒三个键的字符本身偏小，单独放大一点 */
+.key--dms      { font-size: 20px; }
+
 /* =========================================
-   历史记录面板样式
+   历史记录面板
    ========================================= */
 .history-panel {
-    margin-top: 20px;
-    border-top: 1px solid #444;
-    padding-top: 10px;
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+
+/* 「皮肤」键：用强调色描边，和其它功能键一眼区分 */
+.key--theme    { background-color: var(--key-sci-bg);    color: var(--key-sci-text);
+                 box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* 占位与个别标签适配 */
+.key--round { font-size: 16px; white-space: nowrap; }  /* 四舍五入标签较长 */
+
+
+/* 「皮肤」键：用强调色描边，和其它功能键一眼区分 */
+.key--theme    { background-color: var(--key-sci-bg);    color: var(--key-sci-text);
+                 box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* 占位与个别标签适配 */
+.key--round { font-size: 16px; white-space: nowrap; }  /* 四舍五入标签较长 */
+
+/* 度 / 分 / 秒三个键的字符本身偏小，单独放大一点 */
+.key--dms      { font-size: 20px; }
+
+/* =========================================
+   历史记录面板
+   ========================================= */
+.history-panel {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.history-panel__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
 }
 
 .history-panel h3 {
-    font-size: 14px;
-    margin-bottom: 8px;
-    color: #fff;
-}
-
-#history-list {
-    max-height: 200px; /* 超过 200px 就出现滚动条 */
-    overflow-y: auto;  /* 允许上下滑动 */
-    padding: 0;
-    list-style: none;
-    font-size: 14px;
-    color: #ddd;
-    margin: 0;
-}
-
-#history-list li {
-    padding: 4px 0;
-    border-bottom: 1px solid #333;
-}
-
-/* ---------- 历史记录增强：标题栏 / 可点击条目 / 空态 / 清空按钮 ---------- */
-.history-panel__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.history-panel__head h3 {
-    margin-bottom: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  color: var(--text-tertiary);
 }
 
 .history-clear {
-    border: none;
-    background: none;
-    padding: 0;
-    color: var(--key-action);
-    font-size: 13px;
-    cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color .15s ease;
 }
 
-.history-clear:hover {
-    text-decoration: underline;
+.history-clear:hover { color: var(--text-primary); }
+
+#history-list {
+  max-height: 176px;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
+
+#history-list li { padding: 6px 8px; }
 
 #history-list li.history-item {
-    padding: 4px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background .15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
 }
 
 #history-list li.history-item:hover {
-    background: rgba(84, 160, 255, .15);
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+/* 重复次数徽标（去重折叠后显示 ×N） */
+#history-list li.history-item .history-item__count {
+  margin-left: auto;
+  flex: none;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--hover-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  user-select: none;
 }
 
 #history-list li.history-empty {
-    padding: 6px 0;
-    border-bottom: none;
-    color: var(--text-sub);
-    text-align: center;
-}
-
-/* ---------- 历史记录去重：重复次数徽标 ---------- */
-#history-list li.history-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#history-list li.history-item .history-item__count {
-    margin-left: auto; /* 徽标靠右，文本长了也不会被挤走 */
-    flex: none;
-    padding: 0 6px;
-    border-radius: 8px;
-    background: rgba(84, 160, 255, .2);
-    color: var(--key-action);
-    font-size: 12px;
-    line-height: 18px;
-    user-select: none; /* 徽标只是角标，不参与选中 */
+  color: var(--text-tertiary);
+  text-align: center;
 }
