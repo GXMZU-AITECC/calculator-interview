@@ -1353,6 +1353,22 @@ function inputFactorial() {
   canRepeat = false;
   const value = Number(text);
 
+
+/**
+ * 阶乘 n! 按钮点击处理（#194）
+ * 对主屏上当前的非负整数计算阶乘；小数、负数置错误
+ * 依赖：formatResult / show / isError / canRepeat
+ * @input 主屏text显示的当前数值
+ */
+function inputFactorial() {
+  // 如果计算器当前已经处于错误状态，直接返回不处理
+  if (isError()) {
+    return;
+  }
+  // 执行一元运算之后禁止继续连等重复运算
+  canRepeat = false;
+  const value = Number(text);
+
   // 阶乘只允许非负整数；负数或者小数返回错误
   if (!Number.isInteger(value) || value < 0) {
     text = formatResult(NaN);
@@ -3400,3 +3416,36 @@ document.addEventListener('keydown', (event) => {
 
 // 启动：恢复上次的选择；没有记录就用默认皮肤，且不在副屏留字
 themeApply(themeRestore() || THEME_DEFAULT, false);
+
+/** MS：用当前数值覆盖内存，保留正在输入的算式。 */
+function inputMemoryStore() {
+  if (isError()) {
+    return;
+  }
+  const value = readDisplayValue();
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  memory = value;
+  waiting = true;
+  updateMemoryIndicator();
+}
+
+const memoryStoreButton = document.createElement('button');
+memoryStoreButton.type = 'button';
+memoryStoreButton.className = 'key key--mem';
+memoryStoreButton.textContent = 'MS';
+memoryStoreButton.title = '内存存储：用当前数值覆盖内存';
+memoryStoreButton.addEventListener('click', inputMemoryStore);
+
+// 五个内存键共用一行，保留数字键盘的原有行列位置。
+const memoryButtons = Array.from(keyboard.querySelectorAll('.key--mem'));
+if (memoryButtons.length >= 2) {
+  const memoryRow = document.createElement('div');
+  memoryRow.className = 'keyboard__memory';
+  memoryRow.setAttribute('role', 'group');
+  memoryRow.setAttribute('aria-label', '内存键');
+  keyboard.insertBefore(memoryRow, memoryButtons[0]);
+  memoryButtons.forEach((button) => memoryRow.appendChild(button));
+  memoryRow.insertBefore(memoryStoreButton, memoryButtons[1]);
+}

@@ -188,6 +188,13 @@ body {
   gap: 8px;
 }
 
+.keyboard__memory {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
 /* ---------- 按键 ---------- */
 .key {
   height: 50px;
@@ -245,6 +252,17 @@ body {
 
 /* 占位与个别标签适配 */
 .key--round { font-size: 16px; white-space: nowrap; }  /* 四舍五入标签较长 */
+
+
+/* 「皮肤」键：用强调色描边，和其它功能键一眼区分 */
+.key--theme    { background-color: var(--key-sci-bg);    color: var(--key-sci-text);
+                 box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* 占位与个别标签适配 */
+.key--round { font-size: 16px; white-space: nowrap; }  /* 四舍五入标签较长 */
+
+/* 度 / 分 / 秒三个键的字符本身偏小，单独放大一点 */
+.key--dms      { font-size: 20px; }
 
 
 /* 「皮肤」键：用强调色描边，和其它功能键一眼区分 */
