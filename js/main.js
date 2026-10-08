@@ -1885,3 +1885,77 @@ PERMUTATION_KEYS.forEach(([label, op, hint]) => {
   button.addEventListener('click', () => inputOperator(op));
   keyboard.appendChild(button);
 });
+/* ============================================================
+ * 招新考核 · 质数判断按键（提案 #225）
+ * 分支：feature/prime-check     只改 js/main.js 一个文件
+ *
+ * 【粘贴位置】js/main.js 的【最后一行之后】—— 也就是 ]); 这一行的【下面】
+ *   绝对不要粘进中括号 [ ] 里面，也不要动上面任何一行。
+ *   做法：光标点到最后一行的分号后面 → 按一次回车 → 从新的一行开始粘贴本段。
+ *
+ * 【为什么这样写最稳】
+ *   本段完全不依赖 main.js 里的变量名，直接通过 index.html 里已有的
+ *   id 操作元素：主屏 #display-main、副屏 #display-sub、键盘 #keyboard。
+ *   所以无论 main.js 是普通脚本还是包在函数里，都能正常工作。
+ * ============================================================ */
+
+/** 判断一个非负整数是否为质数：小于 2 或非整数一律不是质数。 */
+function isPrimeNumber(n) {
+  if (!Number.isInteger(n) || n < 2) {
+    return false;
+  }
+  if (n < 4) {
+    return true;              /* 2 和 3 是质数 */
+  }
+  if (n % 2 === 0) {
+    return false;             /* 除 2 以外的偶数不是质数 */
+  }
+  for (var i = 3; i * i <= n; i += 2) {
+    if (n % i === 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** 「质数?」按键：读主屏数值 → 判断 → 结果写到副屏，主屏数值保持不变。 */
+function inputPrimeCheck() {
+  var mainEl = document.getElementById('display-main');
+  var subEl = document.getElementById('display-sub');
+  if (!mainEl || !subEl) {
+    return;
+  }
+  var raw = mainEl.textContent.trim();
+  var value = Number(raw);
+
+  if (raw === '' || !Number.isFinite(value) || !Number.isInteger(value) || value < 0) {
+    subEl.textContent = '质数判断：请先输入一个非负整数';
+    return;
+  }
+  subEl.textContent = isPrimeNumber(value) ? (value + ' 是质数') : (value + ' 不是质数');
+}
+
+/** 创建「质数?」按键，加到键盘容器里（显示区之外，不动显示区结构）。 */
+(function () {
+  var keyboardEl = document.getElementById('keyboard');
+  if (!keyboardEl) {
+    return;
+  }
+  var primeButton = document.createElement('button');
+  primeButton.type = 'button';
+  primeButton.className = 'key key--action';
+  primeButton.textContent = '质数?';
+  primeButton.title = '判断当前显示的整数是否为质数';
+  primeButton.addEventListener('click', inputPrimeCheck);
+  keyboardEl.appendChild(primeButton);
+})();
+
+/* ============================================================
+ * 自测（浏览器按 F12 → 控制台 → 粘贴回车）：
+ *   isPrimeNumber(2)   → true
+ *   isPrimeNumber(17)  → true
+ *   isPrimeNumber(97)  → true
+ *   isPrimeNumber(0)   → false
+ *   isPrimeNumber(1)   → false
+ *   isPrimeNumber(100) → false
+ * ============================================================ */
