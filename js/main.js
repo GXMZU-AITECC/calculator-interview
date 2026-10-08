@@ -1,3 +1,27 @@
+// ================= 精度处理工具函数 =================
+function getDecimalLength(num) {
+    const str = num.toString();
+    const index = str.indexOf('.');
+    return index === -1 ? 0 : str.length - index - 1;
+}
+
+const preciseMath = {
+    add: function(a, b) {
+        const multiplier = Math.pow(10, Math.max(getDecimalLength(a), getDecimalLength(b)));
+        return (a * multiplier + b * multiplier) / multiplier;
+    },
+    subtract: function(a, b) {
+        const multiplier = Math.pow(10, Math.max(getDecimalLength(a), getDecimalLength(b)));
+        return (a * multiplier - b * multiplier) / multiplier;
+    },
+    multiply: function(a, b) {
+        const lenA = getDecimalLength(a);
+        const lenB = getDecimalLength(b);
+        const multiplier = Math.pow(10, lenA + lenB);
+        return (Number(a.toString().replace('.', '')) * Number(b.toString().replace('.', ''))) / multiplier;
+    }
+};
+// ==================================================
 const displayMain = document.getElementById('display-main');
 const displaySub = document.getElementById('display-sub');
 const keyboard = document.getElementById('keyboard');
@@ -16,7 +40,7 @@ const historyPanel = document.getElementById('history-panel');
  */
 function add(a, b) {
   // TODO: 整个计算器现在只会这一件事，而且还没实现——等着你的 PR
-  return a + b;
+  return preciseMath.add(a, b);
 }
 
 /**
@@ -26,7 +50,10 @@ function add(a, b) {
  * @returns {number} a² + b²
  */
 function squareSum(a, b) {
-  return a * a + b * b;
+  return preciseMath.add(
+        preciseMath.multiply(a, a), 
+        preciseMath.multiply(b, b)
+    );
 }
 
 /**
@@ -36,7 +63,10 @@ function squareSum(a, b) {
  * @returns {number} a² − b²
  */
 function squareDiff(a, b) {
-  return a * a - b * b;
+  return preciseMath.subtract(
+        preciseMath.multiply(a, a), 
+        preciseMath.multiply(b, b)
+    );
 }
 /**
   * 取模：求 a 除以 b 的余数
