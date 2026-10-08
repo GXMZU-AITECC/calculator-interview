@@ -3460,6 +3460,211 @@ if (memoryButtons.length >= 2) {
 
 
 // =========================================
+// 新增：汇率换算（关联提案：增加计算器汇率运算功能）
+//
+// 做什么：内置一张固定汇率表（以人民币 CNY 为基准），把主屏当前数值
+// 在「人民币 ⇄ 外币」之间来回换算，换算结果写回主屏、副屏留一行算式。
+//
+// 怎么用（全按键交互，不弹窗）：
+//   1. 输入金额（如 100），或者用已有算式算出金额；
+//   2. 按「汇率」键在币种清单里轮播选一个，副屏显示「CNY → USD  1 CNY = 0.14 USD」；
+//   3. 按「⇄」在两个方向间切换：
+//        人民币 → 外币：主屏金额 × 汇率
+//        外币 → 人民币：主屏金额 ÷ 汇率
+//      两个方向各自记住自己的结果，可反复互切。
+//
+// 设计约束（对齐本仓 CT0 / CT1）：
+//   · 只写原生 JS，不装包、不引 CDN、不加构建工具、逻辑不拆出 js/main.js（CT0）；
+//   · 只新增代码：不动显示区 DOM 结构、不改任何既有函数签名、不删既有代码（CT1）；
+//   · 汇率是内置常量表，不联网抓取，离线也能用、结果可复现。
+// 本段为纯叠加新增，未改动上方任何既有代码。
+// =========================================
+
+// ---------------------------------------------------------------
+// 内置汇率表：以 1 人民币（CNY）兑换多少外币为单位。
+// 只需维护「1 CNY = ? 外币」这一个方向，反向换算在代码里取倒数，
+// 避免正反两份数字对不上。数字为示例静态值，不联网、不随行情变化。
+// ---------------------------------------------------------------
+const CURRENCY_RATES = [
+  { code: 'CNY', name: '人民币', symbol: '¥', rate: 1 },
+  { code: 'USD', name: '美元', symbol: '$', rate: 0.14 },
+  { code: 'EUR', name: '欧元', symbol: '€', rate: 0.13 },
+  { code: 'JPY', name: '日元', symbol: '¥', rate: 21.5 },
+  { code: 'GBP', name: '英镑', symbol: '£', rate: 0.11 },
+  { code: 'HKD', name: '港币', symbol: 'HK$', rate: 1.09 },
+  { code: 'KRW', name: '韩元', symbol: '₩', rate: 190 },
+  { code: 'AUD', name: '澳元', symbol: 'A$', rate: 0.21 },
+];
+
+/**
+ * 「汇率」键轮播可选的外币清单：从人民币以外的币种里取。
+ * 换算方向始终是「人民币 ⇄ 某一个外币」，所以人民币本身不参与轮播。
+ */
+const CURRENCY_FOREIGN = CURRENCY_RATES.filter((item) => item.code !== 'CNY');
+
+/** 当前选中的外币；默认美元。 */
+let currencyCurrent = CURRENCY_FOREIGN[0];
+
+/**
+ * 当前换算方向：true = 人民币 → 外币，false = 外币 → 人民币。
+ * 默认正向，按键上的「CNY→USD / USD→CNY」会跟着方向翻转。
+ */
+let currencyForward = true;
+
+/**
+ * 两个方向各自记住最近一次换算的结果（主屏文本）。
+ * 记两份是为了让 ⇄ 能来回互切：正向的结果切过去是反向的输入，反之亦然。
+ * 值停在原始金额文本上，算完即存，与既有「一元运算键」的一次性语义一致。
+ */
+const currencyMemo = { forward: null, backward: null };
+
+/**
+ * 按代码取币种；取不到返回 null（清单被人手改坏时的保险）。
+ * @param {string} code 币种代码，如 'USD'
+ * @returns {{code: string, name: string, symbol: string, rate: number}|null}
+ */
+function currencyFind(code) {
+  return CURRENCY_RATES.find((item) => item.code === code) || null;
+}
+
+/**
+ * 副屏提示文案：把当前币种与方向写成一行「CNY → USD  1 CNY = 0.14 USD」。
+ * @returns {string}
+ */
+function currencyHint() {
+  const from = currencyForward ? currencyFind('CNY') : currencyCurrent;
+  const to = currencyForward ? currencyCurrent : currencyFind('CNY');
+  return `${from.code} → ${to.code}  1 CNY = ${formatResult(currencyCurrent.rate)} ${currencyCurrent.code}`;
+}
+
+/**
+ * 一次换算：人民币 → 外币用乘法，外币 → 人民币用除法。
+ * @param {number} value 主屏当前金额
+ * @param {boolean} forward true = 人民币 → 外币
+ * @returns {number} 换算后的数值（交由 formatResult 统一收敛显示）
+ */
+function currencyConvert(value, forward) {
+  return forward ? value * currencyCurrent.rate : value / currencyCurrent.rate;
+}
+
+/**
+ * 副屏完整算式：如「100 CNY = 14 USD  (1 CNY = 0.14 USD)」。
+ * @param {number} value 换算前的金额
+ * @param {number} converted 换算后的金额
+ * @returns {string}
+ */
+function currencyLine(value, converted) {
+  const from = currencyForward ? 'CNY' : currencyCurrent.code;
+  const to = currencyForward ? currencyCurrent.code : 'CNY';
+  return `${formatResult(value)} ${from} = ${formatResult(converted)} ${to}  (1 CNY = ${formatResult(currencyCurrent.rate)} ${currencyCurrent.code})`;
+}
+
+/**
+ * 「汇率」键：在可选外币之间轮播切换。
+ * 纯状态切换：只改选中币种与副屏提示，不动主屏数值、不改变计算状态机，
+ * 因此可以随时按、按多少次都不会破坏正在输入的算式。
+ */
+function inputCurrencyCycle() {
+  const index = CURRENCY_FOREIGN.indexOf(currencyCurrent);
+  currencyCurrent = CURRENCY_FOREIGN[(index + 1) % CURRENCY_FOREIGN.length];
+  // 换了币种，上一组方向记忆就过期了，清掉免得 ⇄ 切出别的币种的结果
+  currencyMemo.forward = null;
+  currencyMemo.backward = null;
+  showSub(currencyHint());
+  refreshCurrencyButton();
+}
+
+/**
+ * ⇄ 键：按「当前方向」换算主屏数值，然后把方向翻到另一边。
+ *
+ * 语义等价于一个双向换算器：按键上写的方向（如 CNY→USD）就是这一下要执行的换算；
+ * 换完方向自动翻面（键面随之变成 USD→CNY），下次按下就换回来。
+ * 于是「输入 100 → 按一下得 14 → 再按一下得 100」就是最自然的来回切换。
+ */
+function inputCurrencySwap() {
+  if (isError()) {
+    return; // 错误态：先按数字/C 恢复，不做换算
+  }
+
+  // 主屏当前必须是一个可读的数字（分数显示会先被还原成小数）
+  const value = readDisplayValue();
+  if (value === null) {
+    showSub('当前不是可换算的数值');
+    return;
+  }
+
+  // 先按「当前方向」算一次（键面怎么写就怎么算）
+  const converted = currencyConvert(value, currencyForward);
+
+  if (!Number.isFinite(converted)) {
+    text = ERROR_TEXT;
+    clearState();
+    currencyMemo.forward = null;
+    currencyMemo.backward = null;
+    showSub('汇率换算结果无效');
+    show();
+    return;
+  }
+
+  // 记下这次换算的两端，供历史回填与再次切换时对齐
+  currencyMemo[currencyForward ? 'forward' : 'backward'] = formatResult(converted);
+  currencyMemo[currencyForward ? 'backward' : 'forward'] = formatResult(value);
+
+  const shown = formatResult(converted);
+  canRepeat = false; // 一元换算改变了当前数，连算资格作废
+  text = shown;
+  waiting = true; // 换算结果是一个完整结果，可被后续运算符继续使用
+  recordHistory(currencyLine(value, converted), shown);
+  showSub(currencyLine(value, converted));
+  show();
+
+  // 换完立刻翻面：键面与下次按下的方向都跟着变
+  currencyForward = !currencyForward;
+  refreshCurrencyButton();
+}
+
+// ---------------------------------------------------------------
+// 按键：沿用既有 .key .key--sci 样式，追加到键盘网格末尾（等号之前），
+// 与 BIN/OCT/HEX、nPr/nCr、皮肤、MS 等既有新增键同一做法：
+// 不动 LAYOUT / KEY_CLASS / 既有按键分发逻辑（CT1：显示区之外可加按钮）。
+// ---------------------------------------------------------------
+const currencyCycleButton = document.createElement('button');
+currencyCycleButton.type = 'button';
+currencyCycleButton.className = 'key key--sci key--currency';
+currencyCycleButton.textContent = '汇率';
+currencyCycleButton.title = '切换换算币种（人民币 ⇄ 外币）';
+currencyCycleButton.addEventListener('click', inputCurrencyCycle);
+
+const currencySwapButton = document.createElement('button');
+currencySwapButton.type = 'button';
+currencySwapButton.className = 'key key--sci key--currency';
+currencySwapButton.textContent = 'CNY→USD';
+currencySwapButton.title = '切换换算方向并换算当前数值';
+currencySwapButton.addEventListener('click', inputCurrencySwap);
+
+/** 按键文字跟随当前币种与方向：正向写「CNY→外币」，反向写「外币→CNY」。 */
+function refreshCurrencyButton() {
+  currencySwapButton.textContent = currencyForward ? 'CNY→' + currencyCurrent.code : currencyCurrent.code + '→CNY';
+}
+
+keyboard.insertBefore(currencyCycleButton, keyboard.lastElementChild);
+keyboard.insertBefore(currencySwapButton, keyboard.lastElementChild);
+
+// 新按键的补充样式：.key--currency 只微调字号，配色沿用 key--sci。
+// 用注入 <style> 的方式，避免改动 css/style.css（本 PR 只改 js/main.js）。
+const currencyStyle = document.createElement('style');
+currencyStyle.textContent = [
+  '.key--currency {',
+  '  font-size: 13px;',
+  '  white-space: nowrap;',
+  '}',
+].join('\n');
+document.head.appendChild(currencyStyle);
+
+refreshCurrencyButton();
+showSub('');
+
+// =========================================
 // 新增：科学计数法显示（自动 / 强制 两种模式，SCI 键切换）—— 纯叠加，既有逻辑零改动
 // -----------------------------------------------------------------
 // 思路：前面的函数都只通过 formatResult() 取显示文本，所以在这里把 formatResult
