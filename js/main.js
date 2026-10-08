@@ -3545,3 +3545,57 @@ sciButton.textContent = 'SCI';
 sciButton.title = '科学计数法显示：自动 / 强制';
 sciButton.addEventListener('click', inputScienceToggle);
 keyboard.insertBefore(sciButton, keyboard.lastElementChild);
+// ▪ #79 新增：求最大公约数（辗转相除法，支持负数，内部取绝对值）
+function gcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b !== 0) {
+    [a, b] = [b, a % b];
+  }
+  return a;
+}
+
+// ▪ #79 新增：GCD 键（同 #145 模式：只加新代码，不动既有按键分发逻辑与样式）。
+// 两段式输入（项目禁用 prompt/alert/confirm，故不用弹窗）：
+// 第一次按 GCD：把主屏当前数字记为第一个数，提示输入第二个数；
+// 第二次按 GCD：把主屏当前数字记为第二个数，计算并回写主屏。
+let gcdPending = null;
+function inputGcd() {
+  const current = Number(text);
+  if (gcdPending === null) {
+    if (text.trim() === '' || !Number.isInteger(current) || current === 0) {
+      canRepeat = false;
+      text = ERROR_TEXT;
+      showSub('gcd：请先输入第一个整数，再按 GCD');
+      show();
+      return;
+    }
+    gcdPending = current;
+    canRepeat = false;
+    text = '0';
+    showSub(`gcd 第 1 个数 = ${current}，请输入第 2 个数再按 GCD`);
+    show();
+    return;
+  }
+  if (text.trim() === '' || !Number.isInteger(current)) {
+    gcdPending = null;
+    canRepeat = false;
+    text = ERROR_TEXT;
+    showSub('gcd：请先输入第二个整数，再按 GCD');
+    show();
+    return;
+  }
+  const a = gcdPending;
+  gcdPending = null;
+  const result = gcd(a, current);
+  canRepeat = false;
+  text = String(result);
+  showSub(`gcd(${a}, ${current}) = ${result}`);
+  show();
+}
+const gcdButton = document.createElement('button');
+gcdButton.type = 'button';
+gcdButton.className = 'key key--action';
+gcdButton.textContent = 'GCD';
+gcdButton.addEventListener('click', inputGcd);
+keyboard.appendChild(gcdButton);
