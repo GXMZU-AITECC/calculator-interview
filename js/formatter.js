@@ -14,7 +14,22 @@ const formatter = {
    * @returns {string} 用于显示的字符串
    */
   formatResult(result) {
-    // 等待你的 PR（当前占位实现：直接转字符串）
-    return String(result);
-  },
+  let numStr = String(result);
+  const parts = numStr.split('.');
+  let intPart = parts[0];
+  const decPart = parts[1];
+
+  let negative = false;
+  if(intPart.startsWith('-')){
+    negative = true;
+    intPart = intPart.slice(1);
+  }
+  intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  let output = negative ? '-' + intPart : intPart;
+  if(decPart !== undefined){
+    output += '.' + decPart;
+  }
+  return output;
+},
+
 };
