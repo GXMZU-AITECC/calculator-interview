@@ -993,6 +993,19 @@ function recordHistory(line, result) {
   renderHistory();
 }
 
+/** 删除指定的一条历史记录。 */
+function removeHistoryItem(item) {
+  const index = history.indexOf(item);
+
+  if (index === -1) {
+    return;
+  }
+
+  history.splice(index, 1);
+  saveHistory();
+  renderHistory();
+}
+
 /** 点某条记录：把该次结果回填到主屏，作为新算式的起点。 */
 function refillFromHistory(item) {
   text = item.result;
@@ -1038,7 +1051,7 @@ async function inputCopyHistory() {
 /** 把 history 刷到面板上。 */
 function renderHistory() {
   if (!historyList) {
-    return; // 页面没有历史面板时整个功能自动失效，不影响计算
+    return;
   }
 
   historyList.innerHTML = '';
@@ -1055,7 +1068,6 @@ function renderHistory() {
     const li = document.createElement('li');
     li.className = 'history-item';
 
-    // 算式和结果先作为条目文本（和原来一样），重复次数再挂成徽标
     li.textContent = `${item.line} ${item.result}`;
 
     const times = historyCount(item);
@@ -1067,14 +1079,31 @@ function renderHistory() {
       li.appendChild(badge);
     }
 
-    li.title = '点击把结果填回主屏';
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'history-clear';
+    deleteButton.textContent = '删除';
+    deleteButton.title = '删除这条历史记录';
+    deleteButton.setAttribute(
+      'aria-label',
+      `删除历史记录 ${item.line} ${item.result}`
+    );
+
+    deleteButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      removeHistoryItem(item);
+    });
+
+    li.appendChild(deleteButton);
+
+    li.title = '点击记录文本把结果填回主屏';
     li.addEventListener('click', () => refillFromHistory(item));
+
     historyList.appendChild(li);
   });
 
-  historyList.scrollTop = 0; // 最新的在最上面，回到顶部
+  historyList.scrollTop = 0;
 }
-
 // 「清空」按钮挂在标题右侧：标题与按钮包一层，index.html 不动
 if (historyPanel && historyList) {
   const title = historyPanel.querySelector('h3');
