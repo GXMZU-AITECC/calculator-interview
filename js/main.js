@@ -7,8 +7,7 @@ function getDecimalLength(num) {
 
 const preciseMath = {
     add: function(a, b) {
-        const multiplier = Math.pow(10, Math.max(getDecimalLength(a), getDecimalLength(b)));
-        return (a * multiplier + b * multiplier) / multiplier;
+       return Number(a) + Number(b);
     },
     subtract: function(a, b) {
         const multiplier = Math.pow(10, Math.max(getDecimalLength(a), getDecimalLength(b)));
