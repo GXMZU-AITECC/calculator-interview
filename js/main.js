@@ -3943,3 +3943,164 @@ function inputPrimeCheck() {
   primeButton.addEventListener('click', inputPrimeCheck);
   keyboardEl.appendChild(primeButton);
 })();
+// =========================================================
+// 新增：历史记录关键字搜索
+(function buildHistorySearch() {
+  if (!historyPanel || !historyList) {
+    return; // 页面没有历史面板时整个功能自动失效，不影响计算
+  }
+
+  // ---- 搜索框 UI：标题行之后、列表之前，index.html 不用动 ----
+  const wrap = document.createElement('div');
+  wrap.className = 'history-search';
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = '搜索历史（算式或结果）';
+  searchInput.setAttribute('aria-label', '搜索历史记录');
+  searchInput.setAttribute('autocomplete', 'off');
+  searchInput.setAttribute('spellcheck', 'false');
+
+  const clearButton = document.createElement('button');
+  clearButton.type = 'button';
+  clearButton.className = 'history-search__clear';
+  clearButton.textContent = '×';
+  clearButton.title = '清除搜索';
+  clearButton.setAttribute('aria-label', '清除搜索');
+  clearButton.style.display = 'none'; // 没有关键字时隐藏
+
+  wrap.appendChild(searchInput);
+  wrap.appendChild(clearButton);
+  historyPanel.insertBefore(wrap, historyList);
+
+  // ---- 样式：注入 <style>，全部走 CSS 变量，四套皮肤自适应 ----
+  const searchStyle = document.createElement('style');
+  searchStyle.textContent = [
+    '.history-search {',
+    '  display: flex;',
+    '  align-items: center;',
+    '  gap: 6px;',
+    '  margin: 4px 0 6px;',
+    '}',
+    '.history-search input {',
+    '  flex: 1;',
+    '  min-width: 0;',
+    '  padding: 5px 9px;',
+    '  border: 1px solid var(--line-strong);',
+    '  border-radius: 8px;',
+    '  background: var(--display-bg);',
+    '  color: var(--text-primary);',
+    '  font-family: inherit;',
+    '  font-size: 12px;',
+    '}',
+    '.history-search input::placeholder {',
+    '  color: var(--text-tertiary);',
+    '}',
+    '.history-search input:focus {',
+    '  outline: none;',
+    '  border-color: var(--accent);',
+    '}',
+    '.history-search__clear {',
+    '  flex: none;',
+    '  width: 22px;',
+    '  height: 22px;',
+    '  padding: 0;',
+    '  border: none;',
+    '  border-radius: 50%;',
+    '  background: var(--hover-bg);',
+    '  color: var(--text-secondary);',
+    '  font-size: 14px;',
+    '  line-height: 1;',
+    '  cursor: pointer;',
+    '}',
+    '.history-search__clear:hover {',
+    '  color: var(--text-primary);',
+    '}',
+  ].join('\n');
+  document.head.appendChild(searchStyle);
+
+  // ---- 过滤逻辑 ----
+  /** 一条记录是否命中关键字：算式或结果包含关键字（忽略空格与大小写）。 */
+  function historyMatches(item, keyword) {
+    const line = item.line.replace(/\s+/g, '').toLowerCase();
+    const result = item.result.toLowerCase();
+    return line.indexOf(keyword) !== -1 || result.indexOf(keyword) !== -1;
+  }
+
+  /** 与既有 renderHistory 同构，只画命中的条目；无命中显示「无匹配记录」。 */
+  function renderHistoryFiltered(keyword) {
+    historyList.innerHTML = '';
+    const matched = history.filter((item) => historyMatches(item, keyword));
+    if (matched.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'history-empty';
+      empty.textContent = '无匹配记录';
+      historyList.appendChild(empty);
+      return;
+    }
+    matched.forEach((item) => {
+      const li = document.createElement('li');
+      li.className = 'history-item';
+      li.textContent = `${item.line} ${item.result}`;
+      const times = historyCount(item);
+      if (times > 1) {
+        const badge = document.createElement('span');
+        badge.className = 'history-item__count';
+        badge.textContent = `×${times}`;
+        badge.title = `连续重复 ${times} 次`;
+        li.appendChild(badge);
+      }
+      li.title = '点击把结果填回主屏';
+      li.addEventListener('click', () => refillFromHistory(item));
+      historyList.appendChild(li);
+    });
+    historyList.scrollTop = 0;
+  }
+
+  /** 把当前输入同步成关键字并重画列表；关键字为空时恢复完整列表。 */
+  function applySearch() {
+    const keyword = searchInput.value.replace(/\s+/g, '').toLowerCase();
+    clearButton.style.display = keyword === '' ? 'none' : 'flex';
+    if (keyword === '') {
+      renderHistory(); // 走既有渲染：空态、徽标、回填全都不变
+      return;
+    }
+    renderHistoryFiltered(keyword);
+  }
+
+  searchInput.addEventListener('input', applySearch);
+  clearButton.addEventListener('click', () => {
+    searchInput.value = '';
+    applySearch();
+    searchInput.focus();
+  });
+
+  // 接管 renderHistory：搜索非空时画过滤结果，空时原样走既有渲染。
+  // 这样 recordHistory（新计算结果）、clearHistory（清空）之后搜索状态
+  // 自动保持；与 SCI 模块包 formatResult 是同一套路，不改函数签名。
+  const renderHistoryPlain = renderHistory;
+  renderHistory = function renderHistoryWithSearch() {
+    const keyword = searchInput.value.replace(/\s+/g, '').toLowerCase();
+    if (keyword === '') {
+      return renderHistoryPlain();
+    }
+    renderHistoryFiltered(keyword);
+  };
+
+  // 搜索框里的按键在捕获阶段拦下，避免泄漏到计算器的物理键盘监听
+  // （数字 / 运算符 / Enter / Backspace / Escape / c / T 等全局监听）。
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      const target = e.target;
+      if (!target || target !== searchInput) {
+        return; // 只拦搜索框本身，其它输入框不干预
+      }
+      e.stopImmediatePropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault(); // Enter 只当「确认搜索」，不触发计算器的 =
+      }
+    },
+    true,
+  );
+})();
