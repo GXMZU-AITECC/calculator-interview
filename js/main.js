@@ -333,6 +333,28 @@ function inputBackspace() {
   text = text.slice(0, -1) || INITIAL;
   show();
 }
+// 新增：正负号切换功能
+function inputPlusMinus() {
+  // 防呆设计：如果报错，或者处于 waiting 状态，不处理
+  if (isError() || waiting) {
+    return;
+  }
+
+  // 如果是初始状态 '0' 或者是特殊常量（比如 π），就不处理
+  if (text === INITIAL || text === PI_TEXT) {
+    return;
+  }
+
+  // 核心逻辑：切换正负号
+  if (text.startsWith('-')) {
+    text = text.slice(1); // 负数变正数
+  } else {
+    text = '-' + text;    // 正数变负数
+  }
+
+  // 调用 show() 刷新屏幕
+  show();
+}
 // ================= 长按退格连续删除功能 =================
 (function() {
     // 自动查找页面上的退格按钮
