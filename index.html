@@ -24,6 +24,14 @@
                 <!-- 历史记录会动态插入到这里 -->
             </ul>
         </section>
+
+        <!-- 新增：运算过程分步草稿纸（放在历史记录之后，显示区与键盘不动） -->
+        <section class="scratch-panel" id="scratch-panel" aria-label="运算过程草稿纸">
+            <h3>草稿纸</h3>
+            <ol id="scratch-list" class="scratch-list">
+                <!-- 每一步运算由 js/main.js 动态插入 -->
+            </ol>
+        </section>
     </main>
 
     <!-- 只用原生 JS：全部逻辑就这一个文件，不分层、不引框架 -->

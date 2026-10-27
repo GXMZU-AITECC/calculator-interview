@@ -122,7 +122,7 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: safe center; /* 内容高于视口时退回顶部对齐：多一个草稿纸面板也不会顶出屏幕 */
   background: var(--bg);
   color: var(--text-primary);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -331,4 +331,102 @@ button:disabled,
     filter: grayscale(100%);         /* 变成灰色 */
     cursor: not-allowed !important;  /* 鼠标变成禁止符号 */
     pointer-events: none;            /* 禁止点击 */
+}
+
+/* =========================================
+   运算过程分步草稿纸
+   与历史记录面板同一套版式；颜色全部取主题变量，
+   所以深空 / 浅色 / 薄荷 / 琥珀四套皮肤都不用另写覆盖。
+   ========================================= */
+.scratch-panel {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* 收起态：由 js/main.js 切换 hidden，这里兜一层，避免被 display 规则顶掉 */
+.scratch-panel[hidden] { display: none; }
+
+.scratch-panel h3 {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  color: var(--text-tertiary);
+}
+
+.scratch-list {
+  max-height: 132px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 0 4px;   /* 底部留一点：滚到底时最后一行不贴着裁切线 */
+  list-style: none;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.scratch-list li { padding: 5px 8px; }
+
+/* 一步一行：序号 · 算式 · 结果 */
+.scratch-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* 手写草稿那种横线分隔，从第二步开始 */
+.scratch-step + .scratch-step { border-top: 1px solid var(--line); }
+
+.scratch-step__no {
+  flex: none;
+  width: 18px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+  user-select: none;
+}
+
+.scratch-step__expr {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.scratch-step__value {
+  flex: none;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 最终结果：整行淡底 + 结果值用强调色 */
+.scratch-step--final { background-color: var(--hover-bg); border-radius: 6px; }
+.scratch-step--final .scratch-step__value { color: var(--accent); }
+
+.scratch-step__tag {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--hover-bg);
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 16px;
+  user-select: none;
+}
+
+/* 算断的一步（如 1 ÷ 0）：结果标成清除键的红色，别当成正常结果读 */
+.scratch-step--error .scratch-step__value { color: var(--key-clear-text); }
+
+.scratch-empty {
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* 「草稿纸」开关键：按住时用强调色描边，表示面板正展开 */
+.key--scratch { font-size: 13px; }
+.key--scratch[aria-pressed="true"] {
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }

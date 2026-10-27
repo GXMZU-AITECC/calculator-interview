@@ -199,6 +199,10 @@ function applyPending() {
   const result = OPERATORS[pendingOp](acc, right);
   const shown = formatResult(result);
 
+  // 草稿纸：把这一步（左操作数 · 运算符 · 右操作数 · 结果）当场记进纸面。
+  // 放在错误分支之前——出错的那一步也留档，才看得出是哪一步断的。
+  recordScratchStep(acc, pendingOp, text, result);
+
   if (shown === ERROR_TEXT) {
     text = ERROR_TEXT;
     clearState();
@@ -227,6 +231,9 @@ function inputDigit(digit) {
   }
   canRepeat = false; // 开始新一轮数字输入，连算资格作废
   if (waiting) {
+    if (pendingOp === null) {
+      resetScratch(); // 上一轮已经出结果，这一下开始的是新算式：草稿纸翻页
+    }
     text = digit;
     waiting = false;
   } else {
@@ -241,6 +248,9 @@ function inputDecimal() {
   }
   canRepeat = false; // 开始新一轮数字输入，连算资格作废
   if (waiting) {
+    if (pendingOp === null) {
+      resetScratch(); // 与 inputDigit 同一条规则：新算式开始，草稿纸翻页
+    }
     text = `${INITIAL}.`;
     waiting = false;
   } else if (!text.includes('.')) {
@@ -307,6 +317,7 @@ function inputEquals() {
 
   // line 在 applyPending 之前就算好了，左侧操作数不会被结果覆盖（原来这里把 acc 用成了结果）
   recordHistory(line, text);
+  markScratchFinal(); // 这一步就是本轮算式的最终结果，草稿纸上标出来
 
   clearState();
   parenStack.length = 0; // 未闭合的括号随本次求值一并作废
@@ -734,6 +745,7 @@ function inputClear() {
   lastOp = null; // 连算记忆一并清除
   lastRight = null;
   canRepeat = false;
+  resetScratch(); // 草稿纸跟着 C 一起清空
   showSub('');
   show();
 }
@@ -3942,3 +3954,155 @@ function inputPrimeCheck() {
   primeButton.addEventListener('click', inputPrimeCheck);
   keyboardEl.appendChild(primeButton);
 })();
+
+/* ============================================================
+ * 运算过程分步草稿纸（提案 Issue：新增运算过程分步草稿纸）
+ *
+ * 要把「这一次算式是怎么一步步算出来的」摊开成一张草稿纸，
+ * 数据来源只留一个口子——applyPending()，也就是引擎真正执行一次二元运算的地方。
+ * 因此纸上的每一步都等于引擎实际做过的一步，不做事后推断、不重排算式。
+ *
+ * 与既有语义的关系：
+ * - 本计算器是「按一下立刻求值」的顺序求值模型：1 + 2 × 3 = 先得 3、再得 9。
+ *   草稿纸如实反映这个顺序，不按数学优先级重排——重排属于表达式解析范围（CT0 依赖项）；
+ * - 括号在按下 ) 时求值（见 inputRParen），那一步同样经过 applyPending，所以也会上纸；
+ * - 除零一类求值失败的那一步也留档，结果列写「错误」，并在样式上标红。
+ *
+ * 分工：index.html 只多一个空面板 #scratch-panel，样式在 css/style.css 的
+ * 「运算过程分步草稿纸」一节，本段负责状态、渲染与开关键。
+ * 不动显示区 DOM、不改既有函数签名、不引任何依赖。
+ * ============================================================ */
+
+const scratchPanel = document.getElementById('scratch-panel');
+const scratchList = document.getElementById('scratch-list');
+
+const SCRATCH_MAX = 40; // 纸上最多留多少步，超了丢最上面那步（与历史记录一样设上限）
+
+/** 纸上的一步：{ left, op, right, result }，四个字段都是可直接上屏的字符串。 */
+const scratchSteps = [];
+
+/** 最后一步是不是按 = 得出的最终结果，用于高亮并挂「结果」标签。 */
+let scratchFinal = false;
+
+/** 上屏用的操作数：能当数字就套既有的 12 位有效数字收敛，否则原样保留。 */
+function scratchOperand(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? formatResult(num) : String(value);
+}
+
+/** 记一步并重绘纸面。调用点只有 applyPending 一处，不重复记也不会漏记。 */
+function recordScratchStep(left, op, right, result) {
+  scratchSteps.push({
+    left: scratchOperand(left),
+    op,
+    right: scratchOperand(right),
+    result: formatResult(result),
+  });
+  if (scratchSteps.length > SCRATCH_MAX) {
+    scratchSteps.shift();
+  }
+  scratchFinal = false; // 又往前算了一步，上一轮的「结果」标签作废
+  renderScratch();
+}
+
+/** 按 = 之后调用：把最后一步标成本轮算式的最终结果。 */
+function markScratchFinal() {
+  if (scratchSteps.length === 0) {
+    return;
+  }
+  scratchFinal = true;
+  renderScratch();
+}
+
+/** 清空纸面：C 键，以及新一轮算式开始时。 */
+function resetScratch() {
+  if (scratchSteps.length === 0 && !scratchFinal) {
+    return; // 本来就空白，不用白重绘一次
+  }
+  scratchSteps.length = 0;
+  scratchFinal = false;
+  renderScratch();
+}
+
+/** 把 scratchSteps 刷到面板上；面板不在（结构被改过）时静默失效，不影响计算。 */
+function renderScratch() {
+  if (!scratchList) {
+    return;
+  }
+
+  scratchList.innerHTML = '';
+
+  if (scratchSteps.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'scratch-empty';
+    empty.textContent = '还没有步骤：输入算式后按 =，这里逐行列出每一步';
+    scratchList.appendChild(empty);
+    return;
+  }
+
+  scratchSteps.forEach((step, index) => {
+    const isFinal = scratchFinal && index === scratchSteps.length - 1;
+
+    const li = document.createElement('li');
+    li.className = 'scratch-step';
+    if (isFinal) {
+      li.classList.add('scratch-step--final');
+    }
+    if (step.result === ERROR_TEXT) {
+      li.classList.add('scratch-step--error'); // 算断的一步标红，别让人当成正常结果
+    }
+
+    const no = document.createElement('span');
+    no.className = 'scratch-step__no';
+    no.textContent = String(index + 1);
+
+    const expr = document.createElement('span');
+    expr.className = 'scratch-step__expr';
+    expr.textContent = `${step.left} ${step.op} ${step.right} =`;
+
+    const value = document.createElement('span');
+    value.className = 'scratch-step__value';
+    value.textContent = step.result;
+
+    li.appendChild(no);
+    li.appendChild(expr);
+    li.appendChild(value);
+
+    if (isFinal) {
+      const tag = document.createElement('span');
+      tag.className = 'scratch-step__tag';
+      tag.textContent = '结果';
+      li.appendChild(tag);
+    }
+
+    scratchList.appendChild(li);
+  });
+
+  // 手写草稿是一路往下写，最新一步在最下面：跟着滚到底
+  scratchList.scrollTop = scratchList.scrollHeight;
+}
+
+/** 「草稿纸」键：展开 / 收起面板。收起只是不看，纸上的步骤照常记录。 */
+function toggleScratchPanel() {
+  if (!scratchPanel) {
+    return;
+  }
+  const willOpen = scratchPanel.hidden;
+  scratchPanel.hidden = !willOpen;
+  scratchButton.setAttribute('aria-pressed', willOpen ? 'true' : 'false');
+}
+
+// 「草稿纸」开关键：照既有科学键的写法挂进键盘，不写进 LAYOUT。
+// LAYOUT 的 kind 有一份白名单（ci/static-check.mjs），加新 kind 会掉进分发末尾的 else
+// 误走 =；本键自成一体，索性连 LAYOUT / KEY_CLASS 都不碰。
+const scratchButton = document.createElement('button');
+scratchButton.type = 'button';
+scratchButton.className = 'key key--sci key--scratch';
+scratchButton.textContent = '草稿纸';
+scratchButton.title = '展开 / 收起运算过程草稿纸';
+scratchButton.setAttribute('aria-pressed', 'true');
+scratchButton.addEventListener('click', toggleScratchPanel);
+keyboard.insertBefore(scratchButton, keyboard.lastElementChild);
+
+// 先渲染一次空态，面板打开就有话说
+renderScratch();
