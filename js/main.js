@@ -1,8 +1,25 @@
-// 千分位格式化
+// 千分位格式化：只给整数部分插入分隔符，小数位与科学计数法原样保留
 function formatNumber(num) {
   if (isNaN(num)) return '';
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const str = String(num);
+
+  // 科学计数法串（3.33e-7、1e+21）整体放行。
+  // 否则尾数会被当成整数位切开，变成 3.33,333,333,333e-7 这种鬼东西。
+  if (str.includes('e') || str.includes('E')) return str;
+
+  // 负号先摘掉：'-' 与数字之间是词边界，留着会让 \B 的判定变得不好读
+  const negative = str.startsWith('-');
+  const body = negative ? str.slice(1) : str;
+
+  // 按小数点切成两段，只对整数段做千分位
+  const dot = body.indexOf('.');
+  const intPart = dot === -1 ? body : body.slice(0, dot);
+  const decPart = dot === -1 ? '' : body.slice(dot); // 自带小数点
+
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (negative ? '-' : '') + grouped + decPart;
 }
+
 
 // ================= 精度处理工具函数 =================
 function getDecimalLength(num) {
@@ -27,7 +44,7 @@ const preciseMath = {
     }
 };
 // ==================================================
-const  = document.getElementById('display-main');
+const displayMain = document.getElementById('display-main');
 const displaySub = document.getElementById('display-sub');
 const keyboard = document.getElementById('keyboard');
 
@@ -138,18 +155,18 @@ let canRepeat = false;
 // 主显示区字号自适应：位数多到装不下就逐像素缩小，缩到下限为止（#124）
 // ---------------------------------------------------------------
 // 基准字号直接读样式表，避免和 css/style.css 的 32px 各写一份
-const DISPLAY_FONT_BASE = parseFloat(getComputedStyle().fontSize) || 32;
+const DISPLAY_FONT_BASE = parseFloat(getComputedStyle(displayMain).fontSize) || 32;
 const DISPLAY_FONT_MIN = 14; // 最小字号：再长也不小于它，超出部分交给横向滚动
 
 /** 先回到基准字号；装不下就逐像素缩小，直到不再溢出或触到最小字号。 */
 function fitDisplayFont() {
-  .style.fontSize = '';
-  if (.scrollWidth <= .clientWidth) {
+  displayMain.style.fontSize = '';
+  if (displayMain.scrollWidth <= displayMain.clientWidth) {
     return; // 装得下，保持样式表里的基准字号
   }
   for (let size = DISPLAY_FONT_BASE - 1; size >= DISPLAY_FONT_MIN; size -= 1) {
-    .style.fontSize = `${size}px`;
-    if (.scrollWidth <= .clientWidth) {
+    displayMain.style.fontSize = `${size}px`;
+    if (displayMain.scrollWidth <= displayMain.clientWidth) {
       return;
     }
   }
