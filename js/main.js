@@ -1,3 +1,26 @@
+// 千分位格式化：只给整数部分插入分隔符，小数位与科学计数法原样保留
+function formatNumber(num) {
+  if (isNaN(num)) return '';
+  const str = String(num);
+
+  // 科学计数法串（3.33e-7、1e+21）整体放行。
+  // 否则尾数会被当成整数位切开，变成 3.33,333,333,333e-7 这种鬼东西。
+  if (str.includes('e') || str.includes('E')) return str;
+
+  // 负号先摘掉：'-' 与数字之间是词边界，留着会让 \B 的判定变得不好读
+  const negative = str.startsWith('-');
+  const body = negative ? str.slice(1) : str;
+
+  // 按小数点切成两段，只对整数段做千分位
+  const dot = body.indexOf('.');
+  const intPart = dot === -1 ? body : body.slice(0, dot);
+  const decPart = dot === -1 ? '' : body.slice(dot); // 自带小数点
+
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (negative ? '-' : '') + grouped + decPart;
+}
+
+
 // ================= 精度处理工具函数 =================
 function getDecimalLength(num) {
     const str = num.toString();
@@ -150,9 +173,22 @@ function fitDisplayFont() {
 }
 
 function show() {
-  displayMain.textContent = text;
+  // 纯数字字符串直接按字符串做千分位，不经过 Number() 的浮点转换：
+  // 避免 0.0000001 显示成 1e-7、22 位整数显示成 1e+21 的科学计数法（#233）
+  if (/^-?\d+(?:\.\d*)?$/.test(text)) {
+    displayMain.textContent = formatNumber(text);
+  } else {
+    // 非纯数字（错误提示、运算结果串等）维持原有处理
+    let num = Number(text);
+    if (!isNaN(num)) {
+      displayMain.textContent = formatNumber(num);
+    } else {
+      displayMain.textContent = text;
+    }
+  }
   fitDisplayFont();
 }
+
 
 function showSub(line) {
   displaySub.textContent = line || '';
